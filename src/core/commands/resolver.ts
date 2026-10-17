@@ -11,17 +11,55 @@ export type ResolveContext = {
 
 export type ResolveResult = { ok: true; id: string } | { ok: false; error: string };
 
-const KIND_SYNONYMS: Record<string, ObjectKind> = {
-  desk: 'table',
-  bookshelf: 'shelf',
-  bookcase: 'shelf',
-  shelving: 'shelf',
-  couch: 'sofa',
-  cube: 'box',
-  ball: 'sphere',
-  ring: 'torus',
-  donut: 'torus',
-  stool: 'chair',
+const TABLES: ObjectKind[] = ['table', 'dining_table_rectangular', 'coffee_table_rectangular', 'desk_basic'];
+const CHAIRS: ObjectKind[] = ['chair', 'dining_chair_basic'];
+const SHELVES: ObjectKind[] = ['shelf', 'bookshelf_open', 'floating_shelf'];
+const SOFAS: ObjectKind[] = ['sofa', 'sofa_two_seater'];
+const LAMPS: ObjectKind[] = ['lamp', 'lamp_table'];
+
+/** Everyday names mapped to every kind they may refer to; a match must still be unique in the scene. */
+const KIND_SYNONYMS: Record<string, ObjectKind[]> = {
+  table: TABLES,
+  'dining table': ['dining_table_rectangular', 'table'],
+  'coffee table': ['coffee_table_rectangular'],
+  desk: ['desk_basic', 'table'],
+  chair: CHAIRS,
+  'dining chair': CHAIRS,
+  stool: ['chair'],
+  shelf: SHELVES,
+  bookshelf: ['bookshelf_open', 'shelf'],
+  bookcase: ['bookshelf_open', 'shelf'],
+  shelving: SHELVES,
+  'floating shelf': ['floating_shelf'],
+  'wall shelf': ['floating_shelf'],
+  sofa: SOFAS,
+  couch: SOFAS,
+  lamp: LAMPS,
+  'table lamp': ['lamp_table'],
+  bed: ['bed_platform'],
+  nightstand: ['nightstand_basic'],
+  'bedside table': ['nightstand_basic'],
+  cabinet: ['cabinet_basic'],
+  cupboard: ['cabinet_basic'],
+  tv: ['television_flat'],
+  television: ['television_flat'],
+  picture: ['picture_framed'],
+  painting: ['picture_framed'],
+  artwork: ['picture_framed'],
+  mirror: ['mirror_rectangular'],
+  rug: ['rug_rectangular'],
+  carpet: ['rug_rectangular'],
+  plant: ['plant_pot'],
+  pot: ['plant_pot'],
+  door: ['door_single'],
+  window: ['window_single'],
+  wall: ['room_wall'],
+  floor: ['room_floor'],
+  ceiling: ['room_ceiling'],
+  cube: ['box'],
+  ball: ['sphere'],
+  ring: ['torus'],
+  donut: ['torus'],
 };
 
 export function resolveTarget(doc: SceneDocument, rawTarget: string, ctx: ResolveContext): ResolveResult {
@@ -55,11 +93,12 @@ export function resolveTarget(doc: SceneDocument, rawTarget: string, ctx: Resolv
   if (byName.length === 1) return { ok: true, id: byName[0].id };
   if (byName.length > 1) return { ok: false, error: `More than one object is named "${target}". Select one first.` };
 
-  const kind = (OBJECT_KINDS as readonly string[]).includes(name) ? (name as ObjectKind) : KIND_SYNONYMS[name];
-  if (kind) {
-    const byKind = doc.objects.filter((o) => o.kind === kind);
+  const kinds = new Set<string>(KIND_SYNONYMS[name] ?? []);
+  if ((OBJECT_KINDS as readonly string[]).includes(name)) kinds.add(name);
+  if (kinds.size > 0) {
+    const byKind = doc.objects.filter((o) => kinds.has(o.kind));
     if (byKind.length === 1) return { ok: true, id: byKind[0].id };
-    if (byKind.length > 1) return { ok: false, error: `There are several ${kind} objects. Select the one you mean.` };
+    if (byKind.length > 1) return { ok: false, error: `There are several ${name} objects. Select the one you mean.` };
   }
   return { ok: false, error: `Could not find an object matching "${target}".` };
 }

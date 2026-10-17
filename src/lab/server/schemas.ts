@@ -15,6 +15,8 @@ export const partInfoSchema = z.object({
   visible: z.boolean(),
   marker: z.number().int().min(1).max(10_000).nullable().optional(),
   decal_of: z.string().max(80).nullable().optional(),
+  group_id: z.string().max(80).nullable().optional(),
+  group: z.string().max(120).nullable().optional(),
 });
 
 export const snapshotImage = z

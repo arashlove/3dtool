@@ -77,9 +77,19 @@ type LabState = {
 
   checkHealth: () => Promise<void>;
   importStudio: (doc: SceneDocument | null) => void;
-  importFile: (file: File) => Promise<void>;
+  /** `add` places the file beside the selection (or the scene); `replace` starts over with it. */
+  importFile: (file: File, mode?: 'add' | 'replace') => Promise<void>;
   refresh: () => void;
+  /** Parts-list click: one part. */
   select: (id: string, additive?: boolean) => void;
+  /** Viewport click: the whole object first, then the clicked part on a second click. */
+  pick: (id: string, additive?: boolean) => void;
+  selectGroup: (groupId: string, additive?: boolean) => void;
+  transformMode: 'translate' | 'rotate' | 'scale';
+  setTransformMode: (mode: 'translate' | 'rotate' | 'scale') => void;
+  /** Gizmo drag start/end: the move between them becomes one undo step. */
+  beginTransform: () => void;
+  endTransform: () => void;
   setSelected: (ids: string[]) => void;
   setPreview: (ids: string[]) => void;
   setVisible: (id: string, visible: boolean) => void;
@@ -105,6 +115,9 @@ let root: THREE.Group | null = null;
 let viewport: Viewport | null = null;
 let toastCounter = 0;
 let generateController: AbortController | null = null;
+let pendingMove: Transaction | null = null;
+
+const sameSet = (a: string[], b: string[]) => a.length === b.length && b.every((x) => a.includes(x));
 const HISTORY_LIMIT = 50;
 
 export const getLabRoot = () => root;
@@ -146,6 +159,22 @@ export const useLabStore = create<LabState>((set, get) => {
       markers: {},
     });
     get().refresh();
+    get().requestFocus();
+  };
+
+  /** Adds a loaded model beside the selection (or the whole scene) as one undo step. */
+  const addBeside = (loaded: LoadedModel, height: number | null, label: string) => {
+    if (!root) return;
+    const existing = [...collectParts(root).values()];
+    const selected = new Set(get().selected);
+    const anchor = existing.filter((m) => selected.has(m.userData.partId as string));
+    const parts = placeBeside(loaded, existing, boundsOf(anchor.length ? anchor : existing), height);
+    disposeObject(loaded.root);
+    const tx = new Transaction();
+    for (const part of parts) tx.add(part, root);
+    pushEntry(tx.commit(label));
+    get().refresh();
+    set({ selected: parts.map((p) => p.userData.partId as string), transformMode: 'translate' });
     get().requestFocus();
   };
 
@@ -205,12 +234,19 @@ export const useLabStore = create<LabState>((set, get) => {
       }
     },
 
-    importFile: async (file) => {
+    importFile: async (file, mode = 'add') => {
       set({ busy: 'Loading model…' });
       try {
         const loaded = await loadGlbFile(file, get().splitComponents);
-        setRoot(loaded, 'file');
-        get().notify(`Loaded ${file.name}: ${loaded.stats.parts} parts, ${loaded.stats.triangles.toLocaleString()} triangles.`, 'success');
+        const summary = `${loaded.stats.parts} part${loaded.stats.parts === 1 ? '' : 's'}, ${loaded.stats.triangles.toLocaleString()} triangles`;
+        if (mode === 'replace' || !root) {
+          setRoot(loaded, 'file');
+          get().notify(`Loaded ${file.name}: ${summary}.`, 'success');
+        } else {
+          const beside = get().selected.length ? 'the selection' : 'the scene';
+          addBeside(loaded, null, `Add ${loaded.name}`);
+          get().notify(`Added ${file.name} beside ${beside} (${summary}). Drag the gizmo to move it.`, 'success');
+        }
       } catch (e) {
         get().notify(`Could not load ${file.name}: ${errorText(e)}`, 'error');
       } finally {
@@ -239,6 +275,45 @@ export const useLabStore = create<LabState>((set, get) => {
         if (!additive) return { selected: s.selected.length === 1 && s.selected[0] === id ? [] : [id] };
         return { selected: s.selected.includes(id) ? s.selected.filter((x) => x !== id) : [...s.selected, id] };
       }),
+    pick: (id, additive = false) => {
+      const { parts, selected } = get();
+      const groupId = parts.find((p) => p.id === id)?.group_id;
+      const group = groupId ? parts.filter((p) => p.group_id === groupId && p.visible).map((p) => p.id) : [id];
+      if (additive) {
+        const all = group.every((g) => selected.includes(g));
+        set({ selected: all ? selected.filter((x) => !group.includes(x)) : [...new Set([...selected, ...group])] });
+      } else if (group.length > 1 && selected.length > 0 && selected.every((x) => group.includes(x))) {
+        // A second click on a selected object drills into the part; other parts of it stay part-level.
+        set({ selected: [id] });
+      } else {
+        set({ selected: sameSet(selected, [id]) && group.length === 1 ? [] : group });
+      }
+    },
+    selectGroup: (groupId, additive = false) => {
+      const { parts, selected } = get();
+      const group = parts.filter((p) => p.group_id === groupId).map((p) => p.id);
+      set({ selected: additive ? [...new Set([...selected, ...group])] : group });
+    },
+    transformMode: 'translate',
+    setTransformMode: (mode) => set({ transformMode: mode }),
+    beginTransform: () => {
+      if (!root) return;
+      const parts = collectParts(root);
+      pendingMove = new Transaction();
+      for (const id of get().selected) {
+        const m = parts.get(id);
+        if (m) pendingMove.track(m);
+      }
+    },
+    endTransform: () => {
+      const tx = pendingMove;
+      pendingMove = null;
+      if (!tx || !tx.moved) return;
+      const verb = { translate: 'Move', rotate: 'Rotate', scale: 'Scale' }[get().transformMode];
+      const n = get().selected.length;
+      pushEntry(tx.commit(`${verb} ${n} part${n === 1 ? '' : 's'}`));
+      get().refresh();
+    },
     setSelected: (ids) => set({ selected: ids }),
     setPreview: (ids) => set({ preview: ids }),
 
@@ -498,14 +573,7 @@ export const useLabStore = create<LabState>((set, get) => {
         if (mode === 'replace' || !root) {
           setRoot(loaded, 'file');
         } else {
-          const existing = collectParts(root);
-          const parts = placeBeside(loaded, existing.keys(), boundsOf(existing.values()), height);
-          const tx = new Transaction();
-          for (const part of parts) tx.add(part, root);
-          pushEntry(tx.commit(`Add ${name}`));
-          set({ selected: parts.map((p) => p.userData.partId as string) });
-          get().refresh();
-          get().requestFocus();
+          addBeside(loaded, height, `Add ${name}`);
         }
         get().notify(`Generated “${name}” with ${model} (${Math.round((Date.now() - startedAt) / 1000)} s).`, 'success');
         return true;

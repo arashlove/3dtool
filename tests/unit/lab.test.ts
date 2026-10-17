@@ -5,6 +5,7 @@ import { buildDeform } from '@/lab/engine/deform';
 import { connectedComponents, subGeometry, triangleCount } from '@/lab/engine/geometry';
 import { cleanLabel, collectParts, describeAll, type PartMesh } from '@/lab/engine/parts';
 import { applyFaceLabels } from '@/lab/engine/split';
+import { Transaction } from '@/lab/engine/transaction';
 import { heuristicPlan, parseAmount } from '@/lab/heuristic';
 import { placeBeside } from '@/lab/loader';
 import { normaliseOperation, planFromJson, resolveTarget } from '@/lab/plan';
@@ -243,7 +244,7 @@ describe('adding a generated model', () => {
     generated.add(part('part_001', 'handle', new THREE.BoxGeometry(0.2, 0.2, 0.2), '#ffffff', [0.6, 0.2, 0]));
     const loaded = { root: generated, name: 'Mug', stats: { meshes: 2, parts: 2, triangles: 24 } };
 
-    const parts = placeBeside(loaded, collectParts(scene).keys(), occupied, 0.5);
+    const parts = placeBeside(loaded, collectParts(scene).values(), occupied, 0.5);
     expect(parts.map((p) => p.userData.partId)).toEqual(['part_005', 'part_006']);
     expect(parts[0].userData.label).toBe('Mug body');
     const group = new THREE.Group();
@@ -252,5 +253,38 @@ describe('adding a generated model', () => {
     expect(box.min.y).toBeCloseTo(0, 6);
     expect(box.max.y - box.min.y).toBeCloseTo(0.5, 6);
     expect(box.min.x).toBeGreaterThan(occupied.max.x);
+    expect(new Set(parts.map((p) => p.userData.groupId))).toEqual(new Set(['glb_1']));
+  });
+
+  it('keeps an imported file at its own size, and only rescales implausible sizes', () => {
+    const occupied = new THREE.Box3(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 1, 1));
+    const make = (size: number) => ({
+      root: new THREE.Group().add(part('part_000', 'body', new THREE.BoxGeometry(size, size, size))),
+      name: 'Box',
+      stats: { meshes: 1, parts: 1, triangles: 12 },
+    });
+    const heightOf = (meshes: THREE.Object3D[]) => new THREE.Box3().setFromObject(new THREE.Group().add(...meshes)).getSize(new THREE.Vector3()).y;
+    expect(heightOf(placeBeside(make(0.3), [], occupied, null))).toBeCloseTo(0.3, 6);
+    expect(heightOf(placeBeside(make(150), [], occupied, null))).toBeCloseTo(1, 6);
+  });
+});
+
+describe('moving parts with the gizmo', () => {
+  it('records transforms so a move is one undoable step', () => {
+    const root = table();
+    const top = collectParts(root).get('part_000')!;
+    const before = top.position.clone();
+    const tx = new Transaction();
+    tx.track(top);
+    expect(tx.moved).toBe(false);
+    top.position.x += 2;
+    top.rotation.y = 1;
+    expect(tx.moved).toBe(true);
+    const entry = tx.commit('Move');
+    entry.undo();
+    expect(top.position.equals(before)).toBe(true);
+    expect(top.rotation.y).toBeCloseTo(0, 6);
+    entry.redo();
+    expect(top.position.x).toBeCloseTo(before.x + 2, 6);
   });
 });

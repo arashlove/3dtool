@@ -209,7 +209,13 @@ function addOverlay(
   mesh.quaternion.copy(target.quaternion);
   mesh.scale.copy(target.scale);
   mesh.renderOrder = 2;
-  mesh.userData = { partId: uniquePartId(root, target.userData.partId as string, 'decal'), label, decalOf: target.userData.partId };
+  mesh.userData = {
+    partId: uniquePartId(root, target.userData.partId as string, 'decal'),
+    label,
+    decalOf: target.userData.partId,
+    groupId: target.userData.groupId,
+    groupLabel: target.userData.groupLabel,
+  };
   tx.add(mesh, target.parent ?? root);
   return mesh;
 }

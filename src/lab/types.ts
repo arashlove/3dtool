@@ -90,6 +90,9 @@ export type PartInfo = {
   marker?: number | null;
   /** Original part id when this part is a decal/wrap overlay. */
   decal_of?: string | null;
+  /** The object this part belongs to (a Studio object or an imported file). */
+  group_id?: string | null;
+  group?: string | null;
 };
 
 export type PlanRequest = {

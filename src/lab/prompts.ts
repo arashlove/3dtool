@@ -17,6 +17,7 @@ export function partTable(parts: PartInfo[]): string {
         p.id,
         p.marker ? `#${p.marker}` : '-',
         `label=${JSON.stringify(p.label.slice(0, 60))}`,
+        p.group ? `object=${JSON.stringify(p.group.slice(0, 40))}` : '',
         `material=${JSON.stringify(p.material.slice(0, 40))}`,
         `color=${p.color}`,
         `tex=${p.has_texture ? 'yes' : 'no'}`,
