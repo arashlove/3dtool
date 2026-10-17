@@ -41,7 +41,7 @@ export function Build3dsFooter() {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
         gap: 1.25,
         px: 2,
         py: 0.75,
