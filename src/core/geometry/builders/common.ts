@@ -11,7 +11,8 @@ export type BuildContext = {
   material: (partKey: string) => THREE.MeshStandardMaterial;
 };
 
-const DOUBLE_SIDED_PARTS = new Set(['shade']);
+/** Parts built from open surfaces (lamp shades, leaves) that must render from both sides. */
+const DOUBLE_SIDED_PARTS = new Set(['shade', 'foliage']);
 
 export function createContext(spec: SceneObject): BuildContext {
   const group = new THREE.Group();
@@ -61,3 +62,5 @@ export function roundedBox(width: number, height: number, depth: number, radius:
 }
 
 export const num = (spec: SceneObject, key: string) => spec.params[key] as number;
+export const str = (spec: SceneObject, key: string) => String(spec.params[key]);
+export const bool = (spec: SceneObject, key: string) => spec.params[key] === true;

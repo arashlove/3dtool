@@ -12,7 +12,8 @@ import { notify, useUiStore } from '@/state/ui-store';
 import { DimensionGuides } from './DimensionGuides';
 import { SceneObjectView } from './SceneObjectView';
 
-const DEFAULT_CAMERA: [number, number, number] = [5, 4, 6];
+/** In front of the sample room's open side, far enough out to frame all three 10 m walls. */
+const DEFAULT_CAMERA: [number, number, number] = [1.5, 9.5, 13];
 const DEFAULT_TARGET: [number, number, number] = [0, 0.5, 0];
 const RAD2DEG = 180 / Math.PI;
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));

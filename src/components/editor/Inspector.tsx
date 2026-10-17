@@ -138,6 +138,22 @@ function ParamsEditor({ obj }: { obj: SceneObject }) {
             }
             label={p.label}
           />
+        ) : p.type === 'choice' ? (
+          <TextField
+            key={p.key}
+            select
+            label={p.label}
+            value={String(obj.params[p.key])}
+            disabled={obj.locked}
+            onChange={(e) => run([{ op: 'set_params', target: obj.id, changes: { [p.key]: e.target.value } }])}
+            fullWidth
+          >
+            {p.options.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option.replace(/_/g, ' ')}
+              </MenuItem>
+            ))}
+          </TextField>
         ) : (
           <CommitNumberField
             key={p.key}

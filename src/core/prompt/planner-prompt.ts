@@ -36,7 +36,7 @@ Operations (at most ${LIMITS.maxOpsPerPlan}):
 T is "selected", an id such as "obj:2" from the scene list, or a "new:..." ref created earlier in the same reply.
 
 Reply format: {"version":1,"status":"ok","message":"short summary","operations":[...]}
-If the request needs things that are not in the kind list (animals, people, vehicles, plants, text, detailed organic shapes), reply {"version":1,"status":"unsupported","message":"why, and what is supported","operations":[]}.
+If the request needs things that are not in the kind list (animals, people, vehicles, text, detailed organic shapes), reply {"version":1,"status":"unsupported","message":"why, and what is supported","operations":[]}.
 If it is unclear which existing object is meant, reply {"version":1,"status":"clarify","message":"question","operations":[]}.
 
 Rules:

@@ -57,7 +57,9 @@ function objectSchemaFor(kind: ObjectKind) {
       p.key,
       p.type === 'boolean'
         ? z.boolean()
-        : (p.integer ? z.number().int() : z.number()).min(p.min).max(p.max),
+        : p.type === 'choice'
+          ? z.enum(p.options)
+          : (p.integer ? z.number().int() : z.number()).min(p.min).max(p.max),
     ]),
   );
   const materialShape = Object.fromEntries(def.parts.map((part) => [part.key, MaterialSpecSchema]));
