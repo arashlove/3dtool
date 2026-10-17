@@ -2,11 +2,22 @@ import { expect, test } from '@playwright/test';
 
 // Smoke tests cover navigation and manual editing only; they never download a model.
 
-test('root redirects to the studio and the page is cross-origin isolated', async ({ page }) => {
+test('root redirects to the studio', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/studio$/);
   await expect(page.getByRole('tab', { name: 'Shape Studio' })).toHaveAttribute('aria-selected', 'true');
-  expect(await page.evaluate(() => self.crossOriginIsolated)).toBe(true);
+});
+
+test('generating without a token asks for one and never calls Hugging Face', async ({ page }) => {
+  const hfRequests: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('huggingface.co')) hfRequests.push(r.url());
+  });
+  await page.goto('/studio');
+  await page.getByRole('textbox', { name: 'Describe what to build or change' }).fill('Create a red chair');
+  await page.getByRole('button', { name: 'Generate' }).click();
+  await expect(page.getByRole('dialog', { name: 'AI model settings' })).toBeVisible();
+  expect(hfRequests).toEqual([]);
 });
 
 test('future lab is a placeholder with no functionality', async ({ page }) => {
@@ -17,7 +28,7 @@ test('future lab is a placeholder with no functionality', async ({ page }) => {
   await expect(page.locator('canvas')).toHaveCount(0);
 });
 
-test('manual add, select, undo and redo work without the AI model', async ({ page }) => {
+test('manual add, measurements, undo and redo work without the AI model', async ({ page }) => {
   await page.goto('/studio');
   await expect(page.locator('[data-testid="scene-canvas"] canvas')).toBeVisible();
   const rows = page.getByRole('list', { name: 'Scene objects' }).getByRole('button', { name: /^More actions for / });
@@ -28,6 +39,13 @@ test('manual add, select, undo and redo work without the AI model', async ({ pag
   await page.getByRole('menuitem', { name: 'Sofa' }).click();
   await expect(rows).toHaveCount(before + 1);
   await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(/Sofa/);
+
+  const labels = page.locator('[data-testid="scene-canvas"]').getByText(/^\d+(\.\d)? cm$/);
+  await expect(labels).toHaveCount(3);
+  await page.getByRole('button', { name: 'Toggle measurements' }).click();
+  await expect(labels).toHaveCount(0);
+  await page.getByRole('button', { name: 'Toggle measurements' }).click();
+  await expect(labels).toHaveCount(3);
 
   await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click();
   await expect(rows).toHaveCount(before);

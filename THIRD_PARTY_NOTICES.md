@@ -1,21 +1,21 @@
 # Third-party notices
 
 3DTool's original source code is MIT-licensed (see `LICENSE`). That license does **not** extend to the
-third-party software and model weights listed here; each keeps its own license.
+third-party software, services and models listed here; each keeps its own license and terms.
 
-## AI models (downloaded by the visitor's browser, not distributed with this repository)
+## AI models (remote, via Hugging Face Inference Providers)
 
-No model weights are stored in this repository or in the container image. When a visitor loads a model,
-their browser downloads the files directly from Hugging Face.
+No model weights are stored in this repository or in the container image. Generation requests are sent
+from the visitor's browser to Hugging Face Inference Providers with the visitor's own token, under the
+[Hugging Face terms](https://huggingface.co/terms-of-service) and those of the selected provider.
 
-| Preset | Repository | License | Original model |
-|---|---|---|---|
-| Light | [onnx-community/SmolLM2-135M-Instruct-ONNX-MHA](https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX-MHA) | Apache-2.0 | [HuggingFaceTB/SmolLM2-135M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct) |
-| Balanced | [HuggingFaceTB/SmolLM2-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct) | Apache-2.0 | same |
-| Standard (default) | [onnx-community/Qwen2.5-0.5B-Instruct](https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct) | Apache-2.0 | [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) |
-| Strong | [onnx-community/Qwen2.5-1.5B-Instruct](https://huggingface.co/onnx-community/Qwen2.5-1.5B-Instruct) | Apache-2.0 | [Qwen/Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) |
+| Preset | Model | License |
+|---|---|---|
+| Fast | [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) | Apache-2.0 |
+| Balanced (default) | [openai/gpt-oss-120b](https://huggingface.co/openai/gpt-oss-120b) | Apache-2.0 |
+| Strong | [Qwen/Qwen2.5-72B-Instruct](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct) | [Qwen license](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct/blob/main/LICENSE) |
 
-The "Custom" option loads any repository id the visitor enters. That model's license and terms are the
+The "Custom" option uses any model id the visitor enters. That model's license and terms are the
 visitor's responsibility; check its model card.
 
 ## Runtime libraries
@@ -28,8 +28,6 @@ visitor's responsibility; check its model card.
 | [Emotion](https://github.com/emotion-js/emotion) | MIT |
 | [three.js](https://github.com/mrdoob/three.js) (including `examples/jsm` RoundedBoxGeometry, GLTFExporter) | MIT |
 | [@react-three/fiber](https://github.com/pmndrs/react-three-fiber), [@react-three/drei](https://github.com/pmndrs/drei) | MIT |
-| [@huggingface/transformers](https://github.com/huggingface/transformers.js) | Apache-2.0 |
-| [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (loaded by Transformers.js from jsDelivr) | MIT |
 | [Zustand](https://github.com/pmndrs/zustand) | MIT |
 | [Zod](https://github.com/colinhacks/zod) | MIT |
 | [idb-keyval](https://github.com/jakearchibald/idb-keyval) | Apache-2.0 |

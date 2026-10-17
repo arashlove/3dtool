@@ -9,7 +9,9 @@ export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: stri
 function kindLines(): string {
   return OBJECT_KINDS.map((kind) => {
     const def = KIND_DEFS[kind];
-    const params = def.params.map((p) => `${p.key}=${p.default}`).join(',');
+    const params = def.params
+      .map((p) => (p.type === 'number' ? `${p.key}=${p.default}[${p.min}-${p.max}]` : `${p.key}=${p.default}`))
+      .join(',');
     return `${kind}(${params}) parts:${def.parts.map((p) => p.key).join(',')}`;
   }).join('\n');
 }
@@ -18,13 +20,13 @@ export const PLANNER_SYSTEM_PROMPT = `You turn requests about a 3D scene into ON
 
 Units are metres (50 cm = 0.5). Y is up. Rotations are degrees.
 
-Object kinds with parameters (defaults) and material parts:
+Object kinds with parameters (default[allowed range]) and material parts:
 ${kindLines()}
 
 MATERIAL = {"color":"#RRGGBB or colour word","preset":"${MATERIAL_PRESET_NAMES.join('|')}","metalness":0-1,"roughness":0-1,"opacity":0.2-1} (all fields optional)
 
 Operations (at most ${LIMITS.maxOpsPerPlan}):
-{"op":"create","ref":"new:a","kind":KIND,"name":TEXT,"params":{only non-default params},"materials":{PART:MATERIAL}}
+{"op":"create","ref":"new:a","kind":KIND,"name":TEXT,"params":{only non-default params},"materials":{PART:MATERIAL},"transform":{"position":[x,y,z],"rotationDeg":[x,y,z]}} (transform optional)
 {"op":"set_params","target":T,"changes":{PARAM:NUMBER}}
 {"op":"set_material","target":T,"part":PART,"changes":MATERIAL}
 {"op":"set_transform","target":T,"position":[x,y,z],"rotationDeg":[x,y,z],"scale":[x,y,z]}
@@ -41,7 +43,10 @@ Rules:
 - Keep existing objects. Change only what the user asks. Never recreate an existing object to edit it.
 - For size changes to existing objects use set_params with the new absolute value computed from the current params.
 - "it"/"this" means the selected object.
-- Use place_relative for left/right/front/behind/on top; do not invent coordinates.
+- Every parameter must stay inside its allowed range.
+- Use place_relative for left/right/front/behind/on top of other objects.
+- Objects stand on their position: position y is the bottom of the object, x/z is its centre.
+- Rooms: exactly 6 create ops of kind box, each 0.1 m thick with its position in "transform": floor (y=-0.1), 4 walls (y=0, height about 2.6) and ceiling (y=wall height). Centre the room on the existing objects using their "at" values. Walls along x use width=room length, depth=0.1; walls along z use width=0.1, depth=room width.
 - Use part names exactly as listed. Use "main" for the whole object.
 - Never output code, HTML or URLs.`;
 

@@ -1,8 +1,10 @@
 # Deployment
 
-3DTool runs as **one CPU-only web service**. The server only serves the built Next.js app. AI
-inference, scene state and autosave all happen in the visitor's browser, so the container needs no GPU,
-no model weights, no volume and no secrets.
+3DTool runs as **one CPU-only web service**. The server only serves the built Next.js app. Each
+visitor's browser calls Hugging Face Inference Providers directly with that visitor's own token, and
+scene state and autosave live in the browser. The container needs no GPU, no volume and no secrets.
+**Do not** put a Hugging Face token in `zenith-compose.yml`, the Dockerfile or any `NEXT_PUBLIC_*`
+variable.
 
 ## Container
 
@@ -25,13 +27,10 @@ docker run --rm -p 3000:3000 3dtool
 `.dockerignore` excludes `node_modules`, `.next`, test output, `.git`, env files and any model-weight
 files.
 
-## Headers
+## Network
 
-`src/proxy.ts` adds `Cross-Origin-Opener-Policy: same-origin` and
-`Cross-Origin-Embedder-Policy: require-corp` to every response. Keep them if you put a CDN or reverse
-proxy in front: without them the model still works but falls back to single-threaded WASM, which is
-much slower. Visitors' browsers must be able to reach `huggingface.co` (plus its file CDN) and
-`cdn.jsdelivr.net`.
+Visitors' browsers must be able to reach `https://router.huggingface.co`. The server makes no outbound
+calls.
 
 ## Zenith
 

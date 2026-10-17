@@ -1,9 +1,9 @@
 # 3DTool — Shape Studio
 
-Describe furniture and simple shapes in plain English and get an editable 3D scene. A small open
-Hugging Face language model runs **in your browser, on your CPU (WebAssembly)** and turns your request
-into a restricted JSON plan. The app validates that plan and builds every object with its own
-procedural Three.js geometry. The AI never produces meshes, code or URLs.
+Describe furniture and simple shapes in plain English and get an editable 3D scene. A Hugging Face
+language model runs on GPUs through **Hugging Face Inference Providers**, using your own token, and
+turns your request into a restricted JSON plan. The app validates that plan and builds every object
+with its own procedural Three.js geometry. The AI never produces meshes, code or URLs.
 
 - **Shape Studio** (`/studio`): the working editor.
 - **Future Lab** (`/future`): a placeholder for a second module. It has no functionality yet.
@@ -27,8 +27,8 @@ Requests outside the supported kinds (people, animals, vehicles, organic shapes)
 ## How it works
 
 ```
-prompt ─▶ compact scene context ─▶ LLM in a Web Worker (Transformers.js, WASM)
-                                          │ raw text (untrusted)
+prompt ─▶ compact scene context ─▶ browser ─▶ router.huggingface.co (your token) ─▶ GPU provider
+                                          │ streamed raw text (untrusted)
                                           ▼
               JSON extraction ─▶ Zod schema validation ─▶ dry run on a copy of the scene
                                           │ (one correction retry on failure, then a visible error)
@@ -43,41 +43,35 @@ files and GLB export all read from it or write to it through the same validated 
 in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the plan format is in
 [docs/COMMAND_SCHEMA.md](docs/COMMAND_SCHEMA.md).
 
-## AI models and "strength"
+## AI models, tokens and "strength"
 
-Open **Model & strength** in the prompt panel to choose a model. All presets are public, ungated, Apache-2.0
-ONNX models, so **no token is needed**:
+AI generation needs **your own Hugging Face token**. Create a fine-grained token with the
+"Make calls to Inference Providers" permission at
+[huggingface.co/settings/tokens](https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained),
+then paste it into **Model & strength**. Usage is billed to your Hugging Face account; PRO accounts
+include monthly credits.
 
-| Preset | Model | Quantization | Download (approx.) |
-|---|---|---|---|
-| Light | `onnx-community/SmolLM2-135M-Instruct-ONNX-MHA` | q8 | 131 MB |
-| Balanced | `HuggingFaceTB/SmolLM2-360M-Instruct` | q8 | 348 MB |
-| **Standard (default)** | `onnx-community/Qwen2.5-0.5B-Instruct` | q8 | 488 MB |
-| Strong | `onnx-community/Qwen2.5-1.5B-Instruct` | q8 | 1.5 GB |
+| Preset | Model |
+|---|---|
+| Fast | `openai/gpt-oss-20b` |
+| **Balanced (default)** | `openai/gpt-oss-120b` |
+| Strong | `Qwen/Qwen2.5-72B-Instruct` |
+| Custom | any chat model on Inference Providers, e.g. `zai-org/GLM-5.3` or `google/gemma-4-31B-it:fastest` |
 
-Strength comes from the model's size, not from a token. Larger models follow instructions better but
-download more, use more RAM and run slower. **Custom** accepts any Transformers.js-compatible ONNX
-repository id.
-
-An optional **Hugging Face token** only matters for gated or private custom repositories. It is kept in
-your browser (session storage, or local storage if you tick "remember") and is attached only to
-requests to `huggingface.co`. It is never sent to the 3DTool server.
-
-See [docs/MODEL_NOTES.md](docs/MODEL_NOTES.md) for what has been verified and the known limitations.
+The token is kept in your browser (session storage, or local storage if you tick "remember") and sent
+only to `router.huggingface.co`. It is never sent to the 3DTool server, and the app has no server-side
+token. See [docs/MODEL_NOTES.md](docs/MODEL_NOTES.md) for details and what has been verified.
 
 ## Browser requirements
 
-- A recent desktop Chromium, Firefox or Safari with WebAssembly, Web Workers and WebGL.
-- Enough free memory for the chosen model. Expect more than the download size, so a gigabyte or more
-  for the Standard preset.
-- The app sends cross-origin isolation headers (COOP/COEP) so the model can use several CPU threads.
-  Without isolation it falls back to one thread, which is much slower.
-- The model is downloaded once and then cached by the browser. Manual editing works without any model.
+- A recent desktop Chromium, Firefox or Safari with WebGL.
+- An internet connection for AI generation. Manual editing works offline and without a token.
 
 ## Privacy
 
-Prompts and scenes stay in your browser. The server only serves the static app. Model files come
-directly from Hugging Face, and the ONNX Runtime WebAssembly files come from jsDelivr.
+Scenes and autosaves stay in your browser. When you generate, your prompt and a compact scene summary
+(object names, kinds, sizes and positions) go from your browser to Hugging Face and the inference
+provider it selects. The 3DTool server only serves the app.
 
 ## Sample prompts
 
@@ -108,13 +102,13 @@ npm test             # unit and integration tests (Vitest)
 npm run build        # production build (standalone output)
 npm start            # serve the production build (binds 0.0.0.0, PORT env, default 3000)
 npx playwright install chromium   # once
-npm run e2e          # smoke tests against the production build
+npm run e2e          # smoke tests against the production build (no Hugging Face calls)
 ```
 
 ## Deployment (Zenith)
 
-A single CPU-only container, defined by `Dockerfile` and `zenith-compose.yml`. Model weights are never
-part of the image. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+A single CPU-only container, defined by `Dockerfile` and `zenith-compose.yml`. It needs no secrets,
+because each visitor brings their own Hugging Face token. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Adding a new object kind
 

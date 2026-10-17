@@ -11,6 +11,7 @@ import OpenWithIcon from '@mui/icons-material/OpenWith';
 import PhotoSizeSelectSmallIcon from '@mui/icons-material/PhotoSizeSelectSmall';
 import RedoIcon from '@mui/icons-material/Redo';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import SquareFootOutlinedIcon from '@mui/icons-material/SquareFootOutlined';
 import Rotate90DegreesCcwOutlinedIcon from '@mui/icons-material/Rotate90DegreesCcwOutlined';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import UndoIcon from '@mui/icons-material/Undo';
@@ -27,7 +28,7 @@ import Tooltip from '@mui/material/Tooltip';
 import { useState, type ReactNode } from 'react';
 import { KIND_DEFS, OBJECT_KINDS, type ObjectKind } from '@/core/schema/kinds';
 import { selectSelectedObject, useSceneStore, type TransformMode } from '@/state/scene-store';
-import { notify } from '@/state/ui-store';
+import { notify, useUiStore } from '@/state/ui-store';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 function Action({ title, onClick, disabled, children }: { title: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
@@ -49,6 +50,8 @@ export function EditorToolbar() {
   const hasObjects = useSceneStore((s) => s.doc.objects.length > 0);
   const settings = useSceneStore((s) => s.doc.settings);
   const mode = useSceneStore((s) => s.transformMode);
+  const measurementsVisible = useUiStore((s) => s.measurementsVisible);
+  const toggleMeasurements = useUiStore((s) => s.toggleMeasurements);
   const { undo, redo, runOperations, setTransformMode, requestFocus, requestResetView, updateSettings, clearScene } =
     useSceneStore.getState();
   const [addMenu, setAddMenu] = useState<HTMLElement | null>(null);
@@ -153,6 +156,18 @@ export function EditorToolbar() {
           sx={{ px: 1, py: 0.5 }}
         >
           <Grid4x4Icon fontSize="small" />
+        </ToggleButton>
+      </Tooltip>
+      <Tooltip title="Measurements (cm)">
+        <ToggleButton
+          size="small"
+          value="measurements"
+          selected={measurementsVisible}
+          onChange={toggleMeasurements}
+          aria-label="Toggle measurements"
+          sx={{ px: 1, py: 0.5 }}
+        >
+          <SquareFootOutlinedIcon fontSize="small" />
         </ToggleButton>
       </Tooltip>
       <Tooltip title={`Snap (${settings.snapStep} m, 15°)`}>

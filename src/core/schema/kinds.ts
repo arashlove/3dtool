@@ -76,9 +76,9 @@ export const KIND_DEFS: Record<ObjectKind, KindDef> = {
     category: 'primitive',
     description: 'Box or cube, optional rounded edges',
     params: [
-      num('width', 'Width', 0.05, 10, 1),
-      num('height', 'Height', 0.05, 10, 1),
-      num('depth', 'Depth', 0.05, 10, 1),
+      num('width', 'Width', 0.01, 10, 1),
+      num('height', 'Height', 0.01, 10, 1),
+      num('depth', 'Depth', 0.01, 10, 1),
       num('bevelRadius', 'Edge rounding', 0, 0.5, 0),
     ],
     parts: MAIN_PART,
