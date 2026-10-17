@@ -10,6 +10,7 @@ import { exportGlb } from './engine/export';
 import { boundsOf, collectParts, describeAll } from './engine/parts';
 import { applyFaceLabels } from './engine/split';
 import { Transaction, type HistoryEntry } from './engine/transaction';
+import { randomId } from '@/core/id';
 import { loadFromStudio, loadGlbBuffer, loadGlbFile, placeBeside, type LoadedModel } from './loader';
 import { captureMarkedViews } from './snapshot';
 import { segmentByTexture as runTextureSegmentation } from './texseg';
@@ -125,7 +126,7 @@ export function registerViewport(v: Viewport | null) {
   viewport = v;
 }
 
-const uid = () => crypto.randomUUID();
+const uid = randomId;
 
 async function readError(response: Response): Promise<string> {
   const body = (await response.json().catch(() => null)) as { error?: string } | null;

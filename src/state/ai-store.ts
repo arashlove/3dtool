@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { DEFAULT_PRESET_ID, MODEL_PRESETS, type ModelPreset, type ModelSelection } from '@/ai/model-config';
 import type { GenerationProgress as PlannerProgress } from '@/ai/planner.interface';
+import { randomId } from '@/core/id';
 
 export type AiStatus = 'idle' | 'generating';
 
@@ -91,7 +92,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     set({ reviewBeforeApply: value });
   },
   addHistory: (entry) =>
-    set({ history: [{ ...entry, id: crypto.randomUUID(), at: Date.now() }, ...get().history].slice(0, 30) }),
+    set({ history: [{ ...entry, id: randomId(), at: Date.now() }, ...get().history].slice(0, 30) }),
   hydrateFromStorage: () => {
     const local = storage('local');
     const session = storage('session');

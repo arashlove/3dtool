@@ -9,16 +9,29 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Suspense } from 'react';
 
 const NAV = [
   { href: '/studio', label: 'Shape Studio' },
   { href: '/future', label: 'Future Lab' },
 ];
 
-export function AppNav() {
-  const pathname = usePathname();
-  const current = NAV.find((n) => pathname?.startsWith(n.href))?.href ?? false;
+function SectionTabs({ current }: { current: string | false }) {
+  return (
+    <Tabs value={current} aria-label="Sections" sx={{ minHeight: 52, '& .MuiTab-root': { minHeight: 52 } }}>
+      {NAV.map((n) => (
+        <Tab key={n.href} value={n.href} label={n.label} component={Link} href={n.href} />
+      ))}
+    </Tabs>
+  );
+}
 
+function CurrentSectionTabs() {
+  const pathname = usePathname();
+  return <SectionTabs current={NAV.find((n) => pathname?.startsWith(n.href))?.href ?? false} />;
+}
+
+export function AppNav() {
   return (
     <AppBar position="static" color="inherit" sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar variant="dense" sx={{ gap: 2, minHeight: 52 }}>
@@ -32,11 +45,10 @@ export function AppNav() {
             3DTool
           </Typography>
         </Box>
-        <Tabs value={current} aria-label="Sections" sx={{ minHeight: 52, '& .MuiTab-root': { minHeight: 52 } }}>
-          {NAV.map((n) => (
-            <Tab key={n.href} value={n.href} label={n.label} component={Link} href={n.href} />
-          ))}
-        </Tabs>
+        {/* On dynamic routes such as /ar/[id] the pathname is request data, so it must sit inside Suspense. */}
+        <Suspense fallback={<SectionTabs current={false} />}>
+          <CurrentSectionTabs />
+        </Suspense>
       </Toolbar>
     </AppBar>
   );

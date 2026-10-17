@@ -43,9 +43,31 @@ describe('HuggingFaceInferencePlanner', () => {
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer hf_test');
     expect(init.credentials).toBe('omit');
     const body = JSON.parse(String(init.body));
-    expect(body).toMatchObject({ model: 'openai/gpt-oss-120b', stream: true, temperature: 0 });
+    expect(body).toMatchObject({ model: 'openai/gpt-oss-120b', stream: true, temperature: 0, reasoning_effort: 'low' });
     expect(body.messages.at(-1).content).toContain('a table');
     expect(progress).toEqual(['waiting', 'thinking', 'writing', 'writing']);
+  });
+
+  it('asks only gpt-oss models for low reasoning effort, and only presets for JSON-schema output', async () => {
+    const sent = async (modelId: string, isCustom: boolean) => {
+      const fetchMock = vi.fn().mockResolvedValue(sse([delta('{}'), '[DONE]']));
+      vi.stubGlobal('fetch', fetchMock);
+      const p = new HuggingFaceInferencePlanner();
+      p.configure({ modelId, label: modelId, isCustom }, 'hf_test');
+      await p.generatePlan({ userText: 'x', sceneContext: context });
+      return JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
+    };
+    const preset = await sent('openai/gpt-oss-120b', false);
+    expect(preset.reasoning_effort).toBe('low');
+    expect(preset.response_format).toMatchObject({ type: 'json_schema', json_schema: { name: 'ScenePlan', strict: false } });
+    expect(preset.response_format.json_schema.schema.required).toEqual(['version', 'status', 'message', 'operations']);
+
+    const qwen = await sent('Qwen/Qwen2.5-72B-Instruct', false);
+    expect(qwen).not.toHaveProperty('reasoning_effort');
+    expect(qwen).toHaveProperty('response_format');
+
+    const custom = await sent('someone/some-model:fastest', true);
+    expect(custom).not.toHaveProperty('response_format');
   });
 
   it('stops reading once the first JSON object is complete', async () => {

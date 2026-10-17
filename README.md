@@ -91,6 +91,24 @@ deselects, `Ctrl+Z` undoes, and `Ctrl+Shift+Z` or `Ctrl+Y` redoes.
 - **GLB** contains baked meshes and materials for other 3D tools. It cannot be turned back into
   editable parameters.
 
+## View in AR
+
+**View in AR** in Shape Studio or Future Lab exports the whole scene as one GLB, in metres, and shows
+a QR code. On the phone, **View in your room** places the scene on the floor at its real size:
+
+- **Android:** Chrome with ARCore, using WebXR, with Scene Viewer as a fallback.
+- **iPhone:** Safari, using Quick Look. model-viewer converts the GLB to USDZ in the browser.
+
+All objects move together as one group in AR.
+
+- **Share links:** each link works for 60 minutes. The server keeps shared scenes in memory (at most
+  30 MB each, 300 MB and 50 scenes in total, oldest dropped first), so a restart ends all links.
+- **Limits:** uploads are limited to 10 per client per 10 minutes and 300 a day, and cross-site
+  uploads are refused.
+- **HTTPS:** Android's AR camera needs it. Locally, the QR code points to the laptop's Wi-Fi address,
+  so a phone on the same network gets the 3D view only. Use the deployed app, or set
+  `PUBLIC_BASE_URL` to an HTTPS address, for AR.
+
 ## Local development
 
 ```bash
