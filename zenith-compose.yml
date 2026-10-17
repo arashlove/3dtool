@@ -1,0 +1,19 @@
+x-zenith:
+  catalog:
+    name: 3DTool — Shape Studio
+    description: Describe furniture and simple shapes in plain English; a small Hugging Face model running on your own CPU (WebAssembly) plans the edits and native Three.js builders create editable 3D geometry. Export to GLB.
+    authors: [arashlove]
+    source: https://github.com/arashlove/3dtool
+    license: MIT
+    tags: [nextjs, threejs, 3d, ai, transformers-js, webassembly]
+  expose:
+    - { service: web, port: 3000, web: true }
+
+services:
+  web:
+    build: .
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    ports:
+      - "3000:3000"

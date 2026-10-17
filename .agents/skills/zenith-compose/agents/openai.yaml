@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zenith Compose and email"
+  short_description: "Configure app previews, publishing, and platform SMTP email"
+  default_prompt: "Use $zenith-compose to adapt this app with the bundled schema and configure Zenith platform email through x-zenith.env."
