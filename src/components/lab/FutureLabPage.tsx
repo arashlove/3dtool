@@ -4,6 +4,7 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import ListIcon from '@mui/icons-material/List';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import RedoIcon from '@mui/icons-material/Redo';
 import SyncIcon from '@mui/icons-material/Sync';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -30,9 +31,11 @@ import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { createSampleScene } from '@/core/scene/sample-scene';
-import { useLabStore } from '@/lab/store';
+import { exportGlb } from '@/lab/engine/export';
+import { getLabRoot, useLabStore } from '@/lab/store';
 import { loadAutosave } from '@/persistence/autosave';
 import { useSceneStore } from '@/state/scene-store';
+import { ViewInArDialog } from '../ar/ViewInArDialog';
 import { Generate3dDialog } from './Generate3dDialog';
 import { LabChatPanel } from './LabChatPanel';
 import { LabInspector } from './LabInspector';
@@ -132,6 +135,7 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
   const split = useLabStore((s) => s.splitComponents);
   const generating = useLabStore((s) => s.generating3d);
   const [textTo3dOpen, setTextTo3dOpen] = useState(false);
+  const [arOpen, setArOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const store = useLabStore.getState;
 
@@ -228,6 +232,23 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
       <Button size="small" variant="contained" startIcon={<FileDownloadOutlinedIcon />} disabled={!modelName || Boolean(busy)} onClick={() => void store().downloadGlb()}>
         Export GLB
       </Button>
+      <Tooltip title="Open the whole scene on your phone and place it in your room at real size">
+        <span>
+          <Button size="small" variant="outlined" startIcon={<QrCode2Icon />} disabled={!modelName || Boolean(busy)} onClick={() => setArOpen(true)}>
+            View in AR
+          </Button>
+        </span>
+      </Tooltip>
+      <ViewInArDialog
+        open={arOpen}
+        onClose={() => setArOpen(false)}
+        title={modelName ?? '3D scene'}
+        makeGlb={async () => {
+          const root = getLabRoot();
+          if (!root) throw new Error('There is no model to share.');
+          return exportGlb(root, 'label');
+        }}
+      />
       {compact && (
         <IconButton size="small" onClick={onOpenRight} aria-label="Edit panel">
           <TuneIcon />

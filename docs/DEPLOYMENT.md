@@ -46,8 +46,28 @@ files.
 
 ## Network
 
-Visitors' browsers must be able to reach `https://router.huggingface.co`. The server makes no outbound
-calls.
+Visitors' browsers must be able to reach `https://router.huggingface.co`. The `/ar/[id]` page loads
+`@google/model-viewer` 4.1.0 from `cdn.jsdelivr.net`.
+
+## View in AR share links
+
+- **Routes:**
+  - `POST /api/ar?title=…` takes a GLB body and returns `{ id, url, expiresAt, bytes, qrSvg, secure }`.
+  - `GET` or `HEAD /api/ar/[id]` serves the GLB, with `X-Model-Title` and `X-Expires-At` headers.
+  - `/ar/[id]` is the phone page.
+- **Storage:** shared GLBs live only in server memory, held on `globalThis` so every route sees the
+  same store. Each lasts 60 minutes. The caps are 30 MB per scene and 300 MB and 50 scenes in total,
+  with the oldest dropped first. All the limits are in `src/ar/limits.ts`.
+- **Upload rules:**
+  - 10 uploads per client per 10 minutes, keyed on the first `X-Forwarded-For` address;
+  - 300 uploads a day in total;
+  - cross-site requests are refused (`Sec-Fetch-Site`);
+  - the body must be a valid glTF 2.0 binary.
+- **Link address:** links use `PUBLIC_BASE_URL` first. `zenith-compose.yml` maps it to Zenith's
+  `ZENITH_PUBLIC_URL`. Next come the proxy's `X-Forwarded-Host` and `X-Forwarded-Proto`, then the
+  request. When the request came to `localhost`, the link uses the machine's LAN address instead, so a
+  phone on the same Wi-Fi can open it. That plain-HTTP link shows the 3D view, but Android blocks the
+  AR camera without HTTPS.
 
 ## Zenith
 

@@ -31,6 +31,8 @@ visitor's responsibility; check its model card.
 | [Zustand](https://github.com/pmndrs/zustand) | MIT |
 | [Zod](https://github.com/colinhacks/zod) | MIT |
 | [idb-keyval](https://github.com/jakearchibald/idb-keyval) | Apache-2.0 |
+| [node-qrcode](https://github.com/soldair/node-qrcode) (`qrcode`, server-side QR codes for View in AR) | MIT |
+| [model-viewer](https://github.com/google/model-viewer) (`@google/model-viewer` 4.1.0, loaded from jsDelivr on the `/ar` page) | Apache-2.0 |
 
 Development-only tools (TypeScript, ESLint, Vitest, Playwright, Testing Library) are not shipped in the
 production image.
