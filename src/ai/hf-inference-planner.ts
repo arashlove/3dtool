@@ -2,6 +2,7 @@ import { JsonCompletionTracker } from '@/core/commands/json-completion';
 import { createCorrectionMessages, createPlannerPrompt, type ChatMessage } from '@/core/prompt/planner-prompt';
 import { GENERATION_SETTINGS, INFERENCE_ENDPOINT, type ResolvedModel } from './model-config';
 import type { GenerationProgress, TextPlanner } from './planner.interface';
+import { PLAN_JSON_SCHEMA } from './plan-json-schema';
 
 export class CancelledError extends Error {
   constructor() {
@@ -93,6 +94,14 @@ export class HuggingFaceInferencePlanner implements TextPlanner {
           max_tokens: GENERATION_SETTINGS.maxTokens,
           temperature: 0,
           stream: true,
+          // At the default effort, gpt-oss can spend the whole token budget reasoning about a busy scene
+          // and never write the JSON. Low effort answers in about 500 tokens.
+          ...(this.model.modelId.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+          // Presets are served by providers with structured output, which rules out broken brackets and
+          // arithmetic in numbers. Custom models may not support it, so they get free text as before.
+          ...(this.model.isCustom
+            ? {}
+            : { response_format: { type: 'json_schema', json_schema: { name: 'ScenePlan', schema: PLAN_JSON_SCHEMA, strict: false } } }),
         }),
         signal: controller.signal,
         credentials: 'omit',

@@ -1,6 +1,6 @@
 export const LIMITS = {
   maxObjects: 40,
-  maxOpsPerPlan: 6,
+  maxOpsPerPlan: 12,
   maxNameLength: 100,
   maxPromptLength: 1000,
   maxMessageLength: 400,

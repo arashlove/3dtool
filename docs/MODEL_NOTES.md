@@ -12,6 +12,13 @@
 - Requests use `temperature: 0`, `max_tokens: 2048` (reasoning models spend tokens before answering)
   and `stream: true`. The app shows reasoning and answer token counts, and stops reading the stream as
   soon as the first JSON object is complete.
+- **gpt-oss presets** also send `reasoning_effort: "low"`. At the default effort they spent all 2,048
+  tokens reasoning about a scene with objects (`finish_reason: length`) and never wrote the JSON. At low
+  effort they finish in about 500 tokens.
+- **Built-in presets** also send `response_format: json_schema`, with a schema generated from
+  `ScenePlanSchema` (`src/ai/plan-json-schema.ts`). Without it, gpt-oss-120b sometimes wrote broken
+  brackets or arithmetic such as `-0.65+3.3/2` inside numbers. Custom models get free text, because
+  their providers may not support structured output.
 - Each attempt times out after 90 s. Invalid output gets one correction retry, as before.
 - In-browser CPU models (Transformers.js) were removed at the owner's request.
 
@@ -48,8 +55,16 @@ change.
   - no network call at all without a token.
 - The router's CORS preflight returns `Access-Control-Allow-Origin: *` and allows the
   `authorization` and `content-type` headers.
-- **Not yet verified:** a live generation with a real token, and plan quality for each preset. These
-  need the owner's token and have not been run.
+- **Live runs (2026-10-17).** These used a real token and the app's own planner, validator and dry run:
+  - **Four standard prompts** (sofa, chair with gap, desk, widen selected desk) against the sample scene
+    were correct on all three presets. gpt-oss-120b and gpt-oss-20b took under 1 s per prompt;
+    Qwen2.5-72B took 10–21 s.
+  - **Wall and room prompts** ran 16 times on the sample scene and an empty scene: all plans were valid
+    and 0 of 62 walls floated.
+  - **Before this change,** every wall prompt on a scene with objects failed. When plans did succeed,
+    walls were often placed at half their height. That came from the old room rule's wording, which is
+    now explicit that `y` is the bottom.
+  - **gpt-oss-20b ("Fast")** sometimes builds only 3 of 4 walls.
 
 ## Known limitations
 

@@ -165,7 +165,9 @@ function Notifications() {
 
 export function StudioPage() {
   const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
+  // Not noSsr: the server always renders the wide layout, so the first client render must match it.
+  // The query then updates after hydration on narrow screens.
+  const compact = useMediaQuery(theme.breakpoints.down('md'));
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const hydrated = useHydrateAndAutosave();
