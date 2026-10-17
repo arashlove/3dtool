@@ -26,6 +26,15 @@ Differences from the original FastAPI design:
 API: `GET /api/lab/health`, `POST /api/lab/plan`, `POST /api/lab/label-parts` (needs `HF_TOKEN`),
 `POST /api/lab/texture` (returns 503 without a token, and the browser draws a procedural image).
 
+## Importing and arranging models
+
+**Import .glb → Add to scene** puts the file beside the selected object (or beside the whole scene),
+standing on the floor at its own size (glTF units are metres; anything over 20 m or under 2 cm is
+scaled to 1 m). Every part remembers its object (a Studio object or an imported file): clicking it in
+the view selects the whole object, a second click selects the part under the cursor, and the parts
+list groups parts under object headings. The selection gets a move/rotate/scale gizmo (W/E/R); each
+drag is one undo step. **Import .glb → Replace scene** starts over with only that file.
+
 ## Text to 3D
 
 No Hugging Face Inference Provider serves a text-to-3D or image-to-3D model, so **Text to 3D** calls the
