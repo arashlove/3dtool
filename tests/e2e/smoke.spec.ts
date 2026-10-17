@@ -28,7 +28,7 @@ test('future lab is a placeholder with no functionality', async ({ page }) => {
   await expect(page.locator('canvas')).toHaveCount(0);
 });
 
-test('manual add, select, undo and redo work without the AI model', async ({ page }) => {
+test('manual add, measurements, undo and redo work without the AI model', async ({ page }) => {
   await page.goto('/studio');
   await expect(page.locator('[data-testid="scene-canvas"] canvas')).toBeVisible();
   const rows = page.getByRole('list', { name: 'Scene objects' }).getByRole('button', { name: /^More actions for / });
@@ -39,6 +39,13 @@ test('manual add, select, undo and redo work without the AI model', async ({ pag
   await page.getByRole('menuitem', { name: 'Sofa' }).click();
   await expect(rows).toHaveCount(before + 1);
   await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(/Sofa/);
+
+  const labels = page.locator('[data-testid="scene-canvas"]').getByText(/^\d+(\.\d)? cm$/);
+  await expect(labels).toHaveCount(3);
+  await page.getByRole('button', { name: 'Toggle measurements' }).click();
+  await expect(labels).toHaveCount(0);
+  await page.getByRole('button', { name: 'Toggle measurements' }).click();
+  await expect(labels).toHaveCount(3);
 
   await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click();
   await expect(rows).toHaveCount(before);
