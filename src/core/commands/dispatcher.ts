@@ -1,4 +1,5 @@
 import { sceneMaster, type Bounds, type ThreeSceneMaster } from '../geometry/ThreeSceneMaster';
+import { randomId } from '../id';
 import { LIMITS } from '../schema/constants';
 import {
   KIND_DEFS,
@@ -87,7 +88,7 @@ export function applyOperations(doc: SceneDocument, operations: SceneOperation[]
     doc: structuredClone(doc),
     ctx: { selectedId: context.selectedId, aliases: context.aliases ?? {}, refs: new Map() },
     master: context.master ?? sceneMaster,
-    newId: context.idFactory ?? (() => crypto.randomUUID()),
+    newId: context.idFactory ?? randomId,
     created: [],
     changed: new Set(),
     deleted: [],

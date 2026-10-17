@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { randomId } from '@/core/id';
+import { ID_PATTERN } from '@/core/schema/constants';
 import { isGlb } from '@/ar/glb';
 import { AR_LIMITS, SHARE_ID_PATTERN } from '@/ar/limits';
 import { createArHandlers, lanAddress, shareOrigin, type ShareResponse } from '@/ar/server';
@@ -24,6 +26,23 @@ const store = (overrides: Partial<ConstructorParameters<typeof ShareStore>[0]> =
 
 const upload = (body: BodyInit, headers: Record<string, string> = {}, title = 'Living room') =>
   new Request(`http://localhost:3000/api/ar?title=${encodeURIComponent(title)}`, { method: 'POST', body, headers });
+
+describe('ids over plain HTTP', () => {
+  it('makes valid, distinct v4 UUIDs when crypto.randomUUID is missing (non-HTTPS LAN address)', () => {
+    const real = globalThis.crypto;
+    vi.stubGlobal('crypto', { getRandomValues: (a: Uint8Array) => real.getRandomValues(a) });
+    try {
+      const ids = new Set(Array.from({ length: 50 }, randomId));
+      expect(ids.size).toBe(50);
+      for (const id of ids) {
+        expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        expect(id).toMatch(ID_PATTERN);
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
 
 describe('GLB check', () => {
   it('accepts a glTF 2.0 binary whose length matches, and rejects anything else', () => {
