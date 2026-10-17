@@ -3,6 +3,7 @@
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import ListIcon from '@mui/icons-material/List';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -10,6 +11,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import TuneIcon from '@mui/icons-material/Tune';
 import UndoIcon from '@mui/icons-material/Undo';
 import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
+import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -38,12 +40,19 @@ import { useEffect, useRef, useState } from 'react';
 import { createSampleScene } from '@/core/scene/sample-scene';
 import { exportGlb } from '@/lab/engine/export';
 import { getLabRoot, useLabStore } from '@/lab/store';
+import { useLabAiEnabled } from '@/lab/ai-token';
+import { useLabStore } from '@/lab/store';
 import { loadAutosave } from '@/persistence/autosave';
+import { hasSeenTour, LAB_TOUR_KEY } from '@/persistence/tour';
+import { useAiStore } from '@/state/ai-store';
 import { useSceneStore } from '@/state/scene-store';
 import { ViewInArDialog } from '../ar/ViewInArDialog';
+import { useUiStore } from '@/state/ui-store';
 import { Generate3dDialog } from './Generate3dDialog';
 import { LabChatPanel } from './LabChatPanel';
 import { LabInspector } from './LabInspector';
+import { LabTokenDialog } from './LabTokenDialog';
+import { LabTour } from './LabTour';
 import { PartsPanel } from './PartsPanel';
 
 const LabViewport = dynamic(() => import('./LabViewport'), {
@@ -73,12 +82,14 @@ function isEditableTarget(target: EventTarget | null) {
 
 function useLabSetup() {
   useEffect(() => {
+    useAiStore.getState().hydrateFromStorage();
+    if (!hasSeenTour(LAB_TOUR_KEY)) useUiStore.getState().startTour();
     const store = useLabStore.getState();
     void store.checkHealth();
     if (store.modelName === null) void studioDocument().then((doc) => useLabStore.getState().importStudio(doc));
 
     const onKey = (e: KeyboardEvent) => {
-      if (isEditableTarget(e.target) || document.querySelector('.MuiDialog-root')) return;
+      if (isEditableTarget(e.target) || document.querySelector('.MuiDialog-root, [data-tour-open]')) return;
       const s = useLabStore.getState();
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z') {
@@ -105,30 +116,26 @@ function useLabSetup() {
   }, []);
 }
 
-function HealthChip() {
-  const health = useLabStore((s) => s.health);
+function TokenChip() {
   const error = useLabStore((s) => s.healthError);
+  const aiEnabled = useLabAiEnabled();
+  const [open, setOpen] = useState(false);
   if (error) return <Chip size="small" color="error" variant="outlined" label="Server unreachable" title={error} />;
-  if (!health) return <Chip size="small" variant="outlined" label="Checking AI…" />;
-  if (!health.ai_enabled) {
-    return (
-      <Tooltip title="Add HF_TOKEN to .env.local and restart the server to enable the LLM, vision model and image generation. Texture segmentation works without it.">
-        <Chip size="small" color="warning" variant="outlined" label="Offline planner" />
-      </Tooltip>
-    );
-  }
   return (
-    <Tooltip
-      title={
-        <Box sx={{ fontSize: 12 }}>
-          <div>LLM: {health.models.llm}</div>
-          <div>Vision: {health.models.vlm}</div>
-          <div>Images: {health.models.image}</div>
-        </Box>
-      }
-    >
-      <Chip size="small" color="success" variant="outlined" label={`Hugging Face (${health.provider})`} />
-    </Tooltip>
+    <>
+      <Tooltip describeChild title={aiEnabled ? 'Hugging Face token set. Click to change it.' : 'Add your Hugging Face token to use the AI. Without it a simple offline planner answers.'}>
+        <Chip
+          size="small"
+          clickable
+          icon={<VpnKeyOutlinedIcon />}
+          color={aiEnabled ? 'success' : 'warning'}
+          variant="outlined"
+          label={aiEnabled ? 'Hugging Face' : 'Add HF token'}
+          onClick={() => setOpen(true)}
+        />
+      </Tooltip>
+      <LabTokenDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
@@ -165,7 +172,7 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
       sx={{ px: 1.5, py: 0.75, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', alignItems: 'center', flexWrap: 'wrap' }}
     >
       {compact && (
-        <IconButton size="small" onClick={onOpenLeft} aria-label="Parts">
+        <IconButton size="small" onClick={onOpenLeft} aria-label="Parts" data-tour="lab-parts-toggle">
           <ListIcon />
         </IconButton>
       )}
@@ -241,7 +248,12 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
           </Typography>
         </Stack>
       )}
-      <HealthChip />
+      <TokenChip />
+      <Tooltip title="Show the tour">
+        <IconButton size="small" onClick={() => useUiStore.getState().startTour()} aria-label="Tour">
+          <HelpOutlineIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <Tooltip title={canUndo ? `Undo: ${undoLabel} (Ctrl+Z)` : 'Nothing to undo'}>
         <span>
           <IconButton size="small" onClick={() => store().undo()} disabled={!canUndo || Boolean(busy)} aria-label="Undo">
@@ -282,7 +294,7 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
         }}
       />
       {compact && (
-        <IconButton size="small" onClick={onOpenRight} aria-label="Edit panel">
+        <IconButton size="small" onClick={onOpenRight} aria-label="Edit panel" data-tour="lab-edit-toggle">
           <TuneIcon />
         </IconButton>
       )}
@@ -380,6 +392,7 @@ export function FutureLabPage() {
   const compact = useMediaQuery(theme.breakpoints.down('md'));
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+  const tourOpen = useUiStore((s) => s.tourOpen);
   useLabSetup();
 
   const left = (
@@ -402,11 +415,11 @@ export function FutureLabPage() {
             {left}
           </Drawer>
         ) : (
-          <Box component="aside" aria-label="Parts" sx={{ borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+          <Box component="aside" aria-label="Parts" data-tour="lab-parts" sx={{ borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
             {left}
           </Box>
         )}
-        <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }} data-testid="lab-canvas">
+        <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }} data-testid="lab-canvas" data-tour="lab-canvas">
           <LabViewport />
           <EmptyViewport />
           <TransformBar />
@@ -416,12 +429,13 @@ export function FutureLabPage() {
             {right}
           </Drawer>
         ) : (
-          <Box component="aside" aria-label="AI edit and inspector" sx={{ borderLeft: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+          <Box component="aside" aria-label="AI edit and inspector" data-tour="lab-edit" sx={{ borderLeft: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
             {right}
           </Box>
         )}
       </Box>
       <Toasts />
+      {tourOpen && <LabTour compact={compact} />}
     </Box>
   );
 }

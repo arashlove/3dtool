@@ -1,17 +1,18 @@
 import { resolveTarget } from '@/lab/plan';
 import { LABEL_SYSTEM_PROMPT, labelUserMessage } from '@/lab/prompts';
-import { aiEnabled, chatJson, HFError, labSettings } from '@/lab/server/hf';
+import { chatJson, HFError, labSettings, requestToken } from '@/lab/server/hf';
 import { labelRequestSchema, readJson } from '@/lab/server/schemas';
 
-/** AI part naming from the marked snapshot. Needs HF_TOKEN. */
+/** AI part naming from the marked snapshot. Needs the visitor's Hugging Face token. */
 export async function POST(request: Request) {
-  if (!aiEnabled()) return Response.json({ error: 'AI names need HF_TOKEN in .env.local.' }, { status: 400 });
+  const token = requestToken(request);
+  if (!token) return Response.json({ error: 'AI names need your Hugging Face token (top bar).' }, { status: 400 });
   const body = await readJson(request, labelRequestSchema);
   if (!body.ok) return body.response;
   const { parts, image } = body.data;
   const model = labSettings().vlm;
   try {
-    const json = (await chatJson({ model, system: LABEL_SYSTEM_PROMPT, user: labelUserMessage(parts), image, maxTokens: 4096 })) as {
+    const json = (await chatJson({ token, model, system: LABEL_SYSTEM_PROMPT, user: labelUserMessage(parts), image, maxTokens: 4096 })) as {
       labels?: unknown;
     };
     const labels: Record<string, string> = {};

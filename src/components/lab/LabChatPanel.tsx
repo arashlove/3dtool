@@ -19,6 +19,7 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
+import { useLabAiEnabled } from '@/lab/ai-token';
 import type { ChatEntry } from '@/lab/store';
 import { useLabStore } from '@/lab/store';
 import type { EditStep, Operation, PartInfo } from '@/lab/types';
@@ -185,7 +186,7 @@ export function LabChatPanel() {
   const busy = useLabStore((s) => s.busy);
   const vision = useLabStore((s) => s.vision);
   const autoApply = useLabStore((s) => s.autoApply);
-  const health = useLabStore((s) => s.health);
+  const aiEnabled = useLabAiEnabled();
   const hasModel = useLabStore((s) => s.modelName !== null);
   const selectedCount = useLabStore((s) => s.selected.length);
   const pending = chat.some((c) => c.status === 'pending');
@@ -211,7 +212,7 @@ export function LabChatPanel() {
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Describe an edit. The AI plans which parts to change and how; you review the plan before it touches the model.
-              {!health?.ai_enabled && ' Without HF_TOKEN an offline keyword planner answers instead.'}
+              {!aiEnabled && ' Without a Hugging Face token an offline keyword planner answers instead.'}
             </Typography>
             <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: 'wrap' }}>
               {EXAMPLES.map((e) => (
@@ -267,9 +268,9 @@ export function LabChatPanel() {
           </IconButton>
         </Stack>
         <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }} useFlexGap>
-          <Tooltip title={health?.ai_enabled ? 'Attach a four-view snapshot with numbered parts so the vision model can see the model' : 'Vision needs HF_TOKEN'}>
+          <Tooltip title={aiEnabled ? 'Attach a four-view snapshot with numbered parts so the vision model can see the model' : 'Vision needs your Hugging Face token'}>
             <FormControlLabel
-              control={<Switch size="small" checked={vision && Boolean(health?.ai_enabled)} disabled={!health?.ai_enabled} onChange={(e) => useLabStore.getState().set({ vision: e.target.checked })} />}
+              control={<Switch size="small" checked={vision && aiEnabled} disabled={!aiEnabled} onChange={(e) => useLabStore.getState().set({ vision: e.target.checked })} />}
               label={<Typography variant="caption">Vision</Typography>}
             />
           </Tooltip>

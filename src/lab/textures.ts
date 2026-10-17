@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { labHeaders, NO_TOKEN_MESSAGE } from './ai-token';
 import { rng } from './engine/geometry';
 import { colorFromName } from './plan';
 import { wrapSize } from './prompts';
@@ -140,7 +141,7 @@ async function postProcess(blob: Blob, kind: TextureKind, aspect: number): Promi
 export async function loadTexture(prompt: string, kind: TextureKind, aspect: number): Promise<TextureResult> {
   const response = await fetch('/api/lab/texture', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: labHeaders(),
     body: JSON.stringify({ prompt, size: 1024, kind, aspect: Math.min(8, Math.max(0.25, aspect)) }),
   });
   if (response.status === 503) return { texture: toTexture(procedural(prompt, kind, aspect), kind), source: 'procedural' };
@@ -291,10 +292,10 @@ function procedural(prompt: string, kind: TextureKind, aspect: number): HTMLCanv
 export async function generateConceptImage(prompt: string): Promise<string> {
   const response = await fetch('/api/lab/texture', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: labHeaders(),
     body: JSON.stringify({ prompt, size: 1024, kind: 'object', aspect: 1 }),
   });
-  if (response.status === 503) throw new Error('Text-to-3D needs HF_TOKEN in .env.local.');
+  if (response.status === 503) throw new Error(NO_TOKEN_MESSAGE);
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? `Image generation failed (${response.status}).`);

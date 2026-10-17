@@ -105,7 +105,6 @@ export type PlanRequest = {
 };
 
 export type HealthInfo = {
-  ai_enabled: boolean;
   provider: string;
   models: { llm: string; vlm: string; image: string; three_d: string };
 };

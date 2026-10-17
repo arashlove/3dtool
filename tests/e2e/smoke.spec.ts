@@ -3,7 +3,10 @@ import { expect, test } from '@playwright/test';
 // Smoke tests cover navigation and manual editing only; they never call a model.
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem('3dtool:tour-seen:v1', '1'));
+  await page.addInitScript(() => {
+    window.localStorage.setItem('3dtool:tour-seen:v1', '1');
+    window.localStorage.setItem('3dtool:lab-tour-seen:v1', '1');
+  });
 });
 
 test('root redirects to the studio', async ({ page }) => {
@@ -24,12 +27,28 @@ test('generating without a token asks for one and never calls Hugging Face', asy
   expect(hfRequests).toEqual([]);
 });
 
-test('future lab is a placeholder with no functionality', async ({ page }) => {
+test('future lab asks for a token in the UI when none is set', async ({ page }) => {
   await page.goto('/studio');
   await page.getByRole('tab', { name: 'Future Lab' }).click();
   await expect(page).toHaveURL(/\/future$/);
-  await expect(page.getByRole('heading', { name: 'Coming soon — Module 2' })).toBeVisible();
-  await expect(page.locator('canvas')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add HF token' }).click();
+  await expect(page.getByRole('dialog', { name: 'Hugging Face token' })).toBeVisible();
+});
+
+test('future lab sends the visitor token with AI requests', async ({ page }) => {
+  await page.addInitScript(() => window.sessionStorage.setItem('3dtool:hf-token', 'hf_e2eTestToken123456'));
+  const tokens: Array<string | undefined> = [];
+  await page.route('**/api/lab/plan', async (route) => {
+    tokens.push(route.request().headers()['x-hf-token']);
+    await route.abort();
+  });
+  await page.goto('/future');
+  await expect(page.getByRole('button', { name: 'Hugging Face', exact: true })).toBeVisible();
+  const input = page.getByRole('textbox', { name: 'Edit instruction' });
+  await expect(input).toBeEnabled({ timeout: 20_000 });
+  await input.fill('make it red');
+  await input.press('Enter');
+  await expect.poll(() => tokens).toEqual(['hf_e2eTestToken123456']);
 });
 
 test('manual add, measurements, undo and redo work without the AI model', async ({ page }) => {

@@ -1,27 +1,25 @@
 # Deployment
 
-3DTool runs as **one CPU-only web service**. Scene state and autosave live in the browser. In Shape
-Studio, each visitor's browser calls Hugging Face Inference Providers directly with that visitor's own
-token, so Studio needs no server secret. **Do not** put a Hugging Face token in `zenith-compose.yml`,
-the Dockerfile or any `NEXT_PUBLIC_*` variable. The container needs no GPU and no volume.
+3DTool runs as **one CPU-only web service** with **no server secrets**. Scene state and autosave live
+in the browser. Every visitor enters their own Hugging Face token in the app, and it is shared by both
+pages (kept in session storage, or local storage if they tick "Remember"). **Do not** put a Hugging
+Face token in `zenith-compose.yml`, the Dockerfile, `.env.local` or any `NEXT_PUBLIC_*` variable. The
+container needs no GPU and no volume.
 
-## Future Lab token (optional, server-side)
+## How the token is used
 
-The Future Lab's AI features (prompt planner, vision model, AI part names, AI textures and decals,
-Text to 3D) run on the server with `HF_TOKEN`: a token with the "Make calls to Inference Providers"
-permission. It is read at request time and never sent to the browser. Without it the Lab uses an
-offline keyword planner and procedural textures; texture segmentation never needs a token.
+- **Shape Studio:** the browser calls `router.huggingface.co` directly; the token never reaches the
+  3DTool server.
+- **Future Lab:** the AI features (prompt planner, vision model, AI part names, AI textures and decals,
+  Text to 3D) run in the server's API routes, so the browser sends the token in an `x-hf-token` header
+  with each request. The server uses it for that request only and never stores or logs it. Without a
+  token the Lab uses an offline keyword planner and procedural textures; texture segmentation never
+  needs one.
 
-- **Local:** copy `.env.example` to `.env.local`, set `HF_TOKEN=hf_...`, restart `npm run dev`.
-  `.env.local` is gitignored and excluded from the Docker build.
-- **Docker:** `docker run --rm -p 3000:3000 -e HF_TOKEN=hf_... 3dtool`.
-- **Zenith:** `zenith-compose.yml` declares `HF_TOKEN` as an optional secret input; enter it in the
-  deployment's credentials panel, never in the file.
+Calls are billed to each visitor's own Hugging Face account (Text to 3D uses their ZeroGPU quota).
 
-Model settings (`HF_PROVIDER`, `HF_LLM_MODEL`, `HF_VLM_MODEL`, `HF_IMAGE_MODEL`, `HF_3D_SPACE`) are
-listed in `.env.example`. Calls are billed to the token's account (Text to 3D uses its ZeroGPU quota),
-and anyone who can reach a public deployment can use them, so watch usage or add rate limiting
-before sharing the URL widely.
+Optional model settings (`HF_PROVIDER`, `HF_LLM_MODEL`, `HF_VLM_MODEL`, `HF_IMAGE_MODEL`, `HF_3D_SPACE`)
+are listed in `.env.example`.
 
 ## Container
 

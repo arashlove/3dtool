@@ -1,5 +1,5 @@
 import { texturePrompt, wrapSize } from '@/lab/prompts';
-import { aiEnabled, labSettings, textToImage } from '@/lab/server/hf';
+import { labSettings, requestToken, textToImage } from '@/lab/server/hf';
 import { readJson, textureRequestSchema } from '@/lab/server/schemas';
 
 /**
@@ -7,13 +7,14 @@ import { readJson, textureRequestSchema } from '@/lab/server/schemas';
  * cuts out white backgrounds and builds the procedural fallback when this returns 503.
  */
 export async function POST(request: Request) {
-  if (!aiEnabled()) return Response.json({ error: 'HF_TOKEN not configured.', fallback: 'procedural' }, { status: 503 });
+  const token = requestToken(request);
+  if (!token) return Response.json({ error: 'No Hugging Face token.', fallback: 'procedural' }, { status: 503 });
   const body = await readJson(request, textureRequestSchema);
   if (!body.ok) return body.response;
   const { prompt, size, kind, aspect } = body.data;
   const dims = kind === 'wrap' ? wrapSize(aspect) : { width: size, height: size };
   try {
-    const blob = await textToImage(texturePrompt(prompt, kind), dims.width, dims.height);
+    const blob = await textToImage(token, texturePrompt(prompt, kind), dims.width, dims.height);
     return new Response(blob, {
       headers: {
         'Content-Type': blob.type || 'image/png',
