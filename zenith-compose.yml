@@ -8,14 +8,6 @@ x-zenith:
     tags: [nextjs, threejs, 3d, ai, huggingface]
   expose:
     - { service: web, port: 3000, web: true }
-  env:
-    HF_TOKEN:
-      services: [web]
-      input:
-        label: Hugging Face token (Future Lab)
-        description: Optional. Read token with "Make calls to Inference Providers" permission, used server-side by the Future Lab AI features. Shape Studio uses each visitor's own token instead.
-        required: false
-        secret: true
 
 services:
   web:

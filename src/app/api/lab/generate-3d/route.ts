@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { aiEnabled, HFError } from '@/lab/server/hf';
+import { HFError, requestToken } from '@/lab/server/hf';
 import { readJson, snapshotImage } from '@/lab/server/schemas';
 import { imageToGlb, QUALITY, space3d, type Progress } from '@/lab/server/trellis';
 
@@ -21,7 +21,8 @@ function dataUrlToBlob(url: string): Blob {
  * or an `error` line.
  */
 export async function POST(request: Request) {
-  if (!aiEnabled()) return Response.json({ error: 'Text-to-3D needs HF_TOKEN in .env.local.' }, { status: 400 });
+  const token = requestToken(request);
+  if (!token) return Response.json({ error: 'Text to 3D needs your Hugging Face token (top bar).' }, { status: 400 });
   const body = await readJson(request, requestSchema);
   if (!body.ok) return body.response;
   const { image, quality, seed } = body.data;
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
         }
       };
       try {
-        const glb = await imageToGlb(dataUrlToBlob(image), quality, seed, (p: Progress) => send({ type: 'progress', ...p }), request.signal);
+        const glb = await imageToGlb(token, dataUrlToBlob(image), quality, seed, (p: Progress) => send({ type: 'progress', ...p }), request.signal);
         send({ type: 'done', model: space3d(), bytes: glb.byteLength, glb: Buffer.from(glb).toString('base64') });
       } catch (e) {
         send({ type: 'error', error: e instanceof Error ? e.message : '3D generation failed.', fatal: e instanceof HFError && e.fatal });

@@ -1,10 +1,8 @@
 'use client';
 
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -20,8 +18,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { DEFAULT_PRESET_ID, MODEL_PRESETS, resolveModel, type ModelSelection } from '@/ai/model-config';
 import { useAiStore } from '@/state/ai-store';
-
-const TOKEN_SETTINGS_URL = 'https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained';
+import { HfTokenFields } from '../common/HfTokenFields';
 
 function StrengthBars({ value }: { value: number }) {
   return (
@@ -58,8 +55,6 @@ function ModelSettingsForm({ onClose }: { onClose: () => void }) {
       : { kind: 'preset', presetId: MODEL_PRESETS.find((p) => p.id === choice)?.id ?? DEFAULT_PRESET_ID };
   const resolved = resolveModel(selection);
   const invalid = 'error' in resolved ? resolved.error : null;
-  const tokenLooksWrong = token.trim() !== '' && !token.trim().startsWith('hf_');
-
   const save = () => {
     if (invalid) return;
     store.setSelection(selection);
@@ -72,39 +67,7 @@ function ModelSettingsForm({ onClose }: { onClose: () => void }) {
     <>
       <DialogTitle>AI model settings</DialogTitle>
       <DialogContent dividers>
-        <Typography variant="subtitle2" gutterBottom>
-          Hugging Face access token
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Prompts run on GPUs through{' '}
-          <Link href="https://huggingface.co/docs/inference-providers" target="_blank" rel="noopener noreferrer">
-            Hugging Face Inference Providers
-          </Link>
-          , billed to your own account (PRO accounts include monthly credits). Create a fine-grained token with the
-          &quot;Make calls to Inference Providers&quot; permission:{' '}
-          <Link href={TOKEN_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
-            create token <OpenInNewIcon sx={{ fontSize: 11, verticalAlign: 'middle' }} />
-          </Link>
-        </Typography>
-        <TextField
-          label="hf_… token"
-          type="password"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          error={tokenLooksWrong}
-          helperText={tokenLooksWrong ? 'Hugging Face tokens start with "hf_".' : ' '}
-          fullWidth
-          autoComplete="off"
-          slotProps={{ htmlInput: { maxLength: 200, spellCheck: false } }}
-        />
-        <FormControlLabel
-          control={<Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} size="small" />}
-          label={<Typography variant="body2">Remember on this device (otherwise kept for this tab session only)</Typography>}
-        />
-        <Alert severity="info" sx={{ mt: 1 }}>
-          The token stays in this browser and is sent only to router.huggingface.co. It is never sent to the 3DTool server.
-          Your prompt and a short summary of the scene are sent to Hugging Face and the inference provider it selects.
-        </Alert>
+        <HfTokenFields token={token} onTokenChange={setToken} remember={remember} onRememberChange={setRemember} />
 
         <Divider sx={{ my: 2.5 }} />
 

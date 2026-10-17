@@ -1,13 +1,13 @@
 import { heuristicPlan } from '@/lab/heuristic';
 import { planFromJson } from '@/lab/plan';
 import { PLAN_SYSTEM_PROMPT, planUserMessage } from '@/lab/prompts';
-import { aiEnabled, chatJson, HFError, labSettings } from '@/lab/server/hf';
+import { chatJson, HFError, labSettings, requestToken } from '@/lab/server/hf';
 import { planRequestSchema, readJson } from '@/lab/server/schemas';
 import type { EditPlan } from '@/lab/types';
 
 /**
  * Prompt → edit plan. With an attached snapshot the vision model (HF_VLM_MODEL) plans; otherwise the
- * text model (HF_LLM_MODEL). Without a token, or when the AI returns nothing usable, the offline
+ * text model (HF_LLM_MODEL), using the visitor's token from the request. Without a token, or when the AI returns nothing usable, the offline
  * keyword planner answers. The browser applies the plan; the server never touches geometry.
  */
 export async function POST(request: Request) {
@@ -15,9 +15,10 @@ export async function POST(request: Request) {
   if (!body.ok) return body.response;
   const req = body.data;
 
-  if (!aiEnabled()) {
+  const token = requestToken(request);
+  if (!token) {
     const plan = heuristicPlan(req);
-    plan.warnings.push('HF_TOKEN not configured: used the offline keyword planner.');
+    plan.warnings.push('No Hugging Face token: used the offline keyword planner.');
     return Response.json(plan);
   }
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   const warnings: string[] = [];
   let plan: EditPlan | null = null;
   const run = async (model: string, image: string | null, source: 'llm' | 'vlm') => {
-    const json = await chatJson({ model, system: PLAN_SYSTEM_PROMPT, user: planUserMessage(req, Boolean(image)), image });
+    const json = await chatJson({ token, model, system: PLAN_SYSTEM_PROMPT, user: planUserMessage(req, Boolean(image)), image });
     return planFromJson(json, req.parts, source, model);
   };
 

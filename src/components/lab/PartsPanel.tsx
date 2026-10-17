@@ -16,6 +16,7 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { useLabAiEnabled } from '@/lab/ai-token';
 import type { PartInfo } from '@/lab/types';
 import { useLabStore } from '@/lab/store';
 
@@ -162,7 +163,7 @@ export function PartsPanel() {
   const selected = useLabStore((s) => s.selected);
   const preview = useLabStore((s) => s.preview);
   const busy = useLabStore((s) => s.busy);
-  const aiEnabled = useLabStore((s) => Boolean(s.health?.ai_enabled));
+  const aiEnabled = useLabAiEnabled();
   const textureSegments = useLabStore((s) => s.textureSegments);
   const store = useLabStore.getState;
   const [filter, setFilter] = useState('');
@@ -187,9 +188,9 @@ export function PartsPanel() {
             None
           </Button>
         </Stack>
-        <TextField size="small" placeholder="Filter parts" value={filter} onChange={(e) => setFilter(e.target.value)} fullWidth sx={{ mb: 1 }} />
+        <TextField size="small" placeholder="Search parts" value={filter} onChange={(e) => setFilter(e.target.value)} fullWidth sx={{ mb: 1 }} />
         <Stack spacing={1}>
-          <Tooltip title={aiEnabled ? 'Ask the vision model to name every part from a marked snapshot' : 'Needs HF_TOKEN in .env.local'}>
+          <Tooltip title={aiEnabled ? 'Ask the vision model to name every part from a marked snapshot' : 'Needs your Hugging Face token (top bar)'}>
             <span>
               <Button
                 fullWidth

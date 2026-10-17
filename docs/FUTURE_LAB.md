@@ -23,8 +23,10 @@ Differences from the original FastAPI design:
 - Lab edits are mesh-level and do not flow back into the Shape Studio document. Use **Export GLB** to
   keep them; **From Studio** rebuilds the parts from the current Studio scene.
 
-API: `GET /api/lab/health`, `POST /api/lab/plan`, `POST /api/lab/label-parts` (needs `HF_TOKEN`),
+API: `GET /api/lab/health`, `POST /api/lab/plan`, `POST /api/lab/label-parts` (needs a token),
 `POST /api/lab/texture` (returns 503 without a token, and the browser draws a procedural image).
+The AI routes take the visitor's Hugging Face token from the `x-hf-token` request header (the same token
+entered in Shape Studio, or via the token chip in the Lab's top bar) and use it for that request only.
 
 ## Importing and arranging models
 
@@ -43,6 +45,6 @@ API (`src/lab/server/trellis.ts`, `POST /api/lab/generate-3d`). A prompt first b
 with `HF_IMAGE_MODEL`; TRELLIS.2 removes the background and returns a PBR-textured GLB, which is added
 beside the scene (scaled to a chosen height) or replaces it. The route streams progress as NDJSON.
 
-The Space runs on ZeroGPU with the server's `HF_TOKEN`, so generation uses that account's daily
+The Space runs on ZeroGPU with the visitor's token, so generation uses their account's daily
 ZeroGPU quota, and it can queue when the Space is busy. `HF_3D_SPACE` points at another Space with
 the same API (for example a duplicate on your own hardware).

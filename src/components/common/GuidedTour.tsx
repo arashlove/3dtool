@@ -10,44 +10,17 @@ import { createPortal } from 'react-dom';
 import { markTourSeen } from '@/persistence/tour';
 import { useUiStore } from '@/state/ui-store';
 
-type TourStep = { target: string; compactTarget: string; compactHint: string; title: string; intro: string; points: string[] };
+export type TourStep = {
+  /** CSS selector of the element to spotlight. */
+  target: string;
+  /** Selector used on small screens, where side panels are drawers. */
+  compactTarget: string;
+  compactHint: string;
+  title: string;
+  intro: string;
+  points: string[];
+};
 type Rect = { top: number; left: number; width: number; height: number };
-
-const STEPS: TourStep[] = [
-  {
-    target: '[data-tour="prompt"]',
-    compactTarget: '[data-tour="prompt-toggle"]',
-    compactHint: 'Tap this button to open the prompt panel.',
-    title: 'Describe it, the AI builds it',
-    intro: 'Type what you want and press Generate.',
-    points: ['Try an example prompt to start.', 'Works with presets like chairs, tables, shelves, lamps and sofas.'],
-  },
-  {
-    target: '[data-tour="objects"]',
-    compactTarget: '[data-tour="objects-toggle"]',
-    compactHint: 'Tap this button to open the objects panel.',
-    title: 'Your objects',
-    intro: 'Every object in the scene is listed here.',
-    points: [
-      'Click a row to select that object.',
-      'Use the eye to hide it, the padlock to lock it, and ⋯ for more actions.',
-      'The Inspector below changes the selected object’s size, position, rotation and colours.',
-    ],
-  },
-  {
-    target: '[data-tour="canvas"]',
-    compactTarget: '[data-tour="canvas"]',
-    compactHint: '',
-    title: 'Play around in 3D',
-    intro: 'This is your scene. Try things out — Undo always takes you back.',
-    points: [
-      'Click an object to select it and see its width, depth and height in centimetres.',
-      'Drag the coloured arrows to move it, or switch to rotate and scale in the toolbar below.',
-      'Use Add in the toolbar to drop in more presets.',
-      'Drag empty space to orbit, right-drag to pan and scroll to zoom.',
-    ],
-  },
-];
 
 const CARD_WIDTH = 340;
 const GAP = 16;
@@ -69,7 +42,10 @@ function placeCard(rect: Rect | null, cardW: number, cardH: number, vw: number, 
   return { left, top: clamp(rect.top + 24, MARGIN, vh - cardH - MARGIN) };
 }
 
-export function StudioTour({ compact }: { compact: boolean }) {
+type Props = { steps: TourStep[]; storageKey: string; compact: boolean };
+
+/** Spotlight tour: shades the page except the current step's target and explains it in a card. */
+export function GuidedTour({ steps, storageKey, compact }: Props) {
   const closeTour = useUiStore((s) => s.closeTour);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -78,12 +54,12 @@ export function StudioTour({ compact }: { compact: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  const step = STEPS[index];
+  const step = steps[index];
   const selector = compact ? step.compactTarget : step.target;
-  const last = index === STEPS.length - 1;
+  const last = index === steps.length - 1;
 
   const finish = () => {
-    markTourSeen();
+    markTourSeen(storageKey);
     closeTour();
   };
 
@@ -114,12 +90,12 @@ export function StudioTour({ compact }: { compact: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      markTourSeen();
+      markTourSeen(storageKey);
       closeTour();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closeTour]);
+  }, [closeTour, storageKey]);
 
   const cardW = Math.min(CARD_WIDTH, viewport.w - MARGIN * 2);
   const position = placeCard(rect, cardW, cardH, viewport.w, viewport.h);
@@ -157,7 +133,7 @@ export function StudioTour({ compact }: { compact: boolean }) {
         sx={{ position: 'fixed', top: position.top, left: position.left, width: cardW, p: 2.5, borderRadius: 2 }}
       >
         <Typography variant="overline" color="primary" sx={{ lineHeight: 1.6 }}>
-          Step {index + 1} of {STEPS.length}
+          Step {index + 1} of {steps.length}
         </Typography>
         <Typography id="tour-title" variant="h6" sx={{ fontWeight: 650, mb: 1 }}>
           {step.title}
@@ -184,7 +160,7 @@ export function StudioTour({ compact }: { compact: boolean }) {
             Skip tour
           </Button>
           <Stack direction="row" spacing={0.75} sx={{ flex: 1, justifyContent: 'center' }} aria-hidden>
-            {STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <Box key={s.title} sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: i === index ? 'primary.main' : 'action.disabled' }} />
             ))}
           </Stack>

@@ -4,6 +4,7 @@ import type * as THREE from 'three';
 import { create } from 'zustand';
 import { disposeObject } from '@/core/geometry/ThreeSceneMaster';
 import type { SceneDocument } from '@/core/schema/scene';
+import { labAiEnabled, labHeaders, NO_TOKEN_MESSAGE } from './ai-token';
 import { applySteps } from './engine/apply';
 import { exportGlb } from './engine/export';
 import { boundsOf, collectParts, describeAll } from './engine/parts';
@@ -180,7 +181,7 @@ export const useLabStore = create<LabState>((set, get) => {
   const editContext = () => ({
     loadTexture: async (prompt: string, kind: 'seamless' | 'decal' | 'wrap', aspect: number) => {
       const result = await loadTexture(prompt, kind, aspect);
-      if (result.source === 'procedural') get().notify(`No HF_TOKEN: used a procedural ${kind} image for “${prompt}”.`, 'info');
+      if (result.source === 'procedural') get().notify(`No Hugging Face token: used a procedural ${kind} image for “${prompt}”.`, 'info');
       return result.texture;
     },
     viewport: viewport ? { renderer: viewport.renderer, camera: viewport.camera } : undefined,
@@ -365,7 +366,7 @@ export const useLabStore = create<LabState>((set, get) => {
     sendPrompt: async (prompt) => {
       const text = prompt.trim();
       if (!text || !root) return;
-      const { vision, health, selected } = get();
+      const { vision, selected } = get();
       const userId = uid();
       const replyId = uid();
       set((s) => ({
@@ -373,7 +374,7 @@ export const useLabStore = create<LabState>((set, get) => {
       }));
 
       let snapshot: { image: string; markers: Record<string, number> } | null = null;
-      if (vision && health?.ai_enabled && viewport) {
+      if (vision && labAiEnabled() && viewport) {
         try {
           snapshot = captureMarkedViews(viewport.renderer, viewport.scene, root);
           set({ markers: snapshot.markers });
@@ -396,7 +397,7 @@ export const useLabStore = create<LabState>((set, get) => {
         image: snapshot?.image ?? null,
       };
       try {
-        const response = await fetch('/api/lab/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const response = await fetch('/api/lab/plan', { method: 'POST', headers: labHeaders(), body: JSON.stringify(body) });
         if (!response.ok) throw new Error(await readError(response));
         const plan = (await response.json()) as EditPlan;
         updateChat(replyId, { text: plan.summary, plan, snapshot: snapshot?.image ?? null, status: plan.steps.length ? 'ready' : 'discarded' });
@@ -423,8 +424,8 @@ export const useLabStore = create<LabState>((set, get) => {
 
     autoLabel: async () => {
       if (!root || !viewport) return;
-      if (!get().health?.ai_enabled) {
-        get().notify('AI names need HF_TOKEN in .env.local.', 'warning');
+      if (!labAiEnabled()) {
+        get().notify(NO_TOKEN_MESSAGE, 'warning');
         return;
       }
       set({ busy: 'Naming parts…' });
@@ -434,7 +435,7 @@ export const useLabStore = create<LabState>((set, get) => {
         get().refresh();
         const response = await fetch('/api/lab/label-parts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: labHeaders(),
           body: JSON.stringify({ parts: get().parts.filter((p) => p.visible && !p.decal_of), image: snapshot.image }),
         });
         if (!response.ok) throw new Error(await readError(response));
@@ -537,7 +538,7 @@ export const useLabStore = create<LabState>((set, get) => {
       try {
         const response = await fetch('/api/lab/generate-3d', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: labHeaders(),
           body: JSON.stringify({ image, quality, seed: Math.floor(Math.random() * 2_147_483_647) }),
           signal: controller.signal,
         });

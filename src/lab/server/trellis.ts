@@ -1,10 +1,10 @@
 import { Client, handle_file } from '@gradio/client';
-import { HFError, labSettings } from './hf';
+import { HFError } from './hf';
 
 /**
  * Image-to-3D through the public microsoft/TRELLIS.2 Space (ZeroGPU). No Hugging Face Inference
- * Provider serves a 3D model, so the Space's own Gradio API is called with the server's HF_TOKEN;
- * GPU time counts against that account's ZeroGPU quota.
+ * Provider serves a 3D model, so the Space's own Gradio API is called with the visitor's token;
+ * GPU time counts against their account's ZeroGPU quota.
  *
  * The Space keeps the generated latent in per-session state: one client (one session) runs
  * start_session → preprocess_image → image_to_3d → extract_glb.
@@ -30,7 +30,7 @@ function explainSpaceError(e: unknown): HFError {
   if (/quota|exceeded.*gpu|gpu.*limit|zerogpu/i.test(message)) {
     return new HFError(`ZeroGPU quota for this Hugging Face account is used up (${message.slice(0, 160)}). It refills over time; a PRO account gets more.`, true);
   }
-  if (/401|403|unauthori[sz]ed|invalid token/i.test(message)) return new HFError('HF_TOKEN was rejected by the Space.', true);
+  if (/401|403|unauthori[sz]ed|invalid token/i.test(message)) return new HFError('Your Hugging Face token was rejected by the Space.', true);
   if (/sleep|paused|building|not running|runtime_error/i.test(message)) return new HFError(`The ${space3d()} Space is not running right now. Try again later.`);
   return new HFError(`${space3d()} failed: ${message.slice(0, 300)}`);
 }
@@ -71,9 +71,15 @@ async function run<T>(
 }
 
 /** Turns one image (a data URL or PNG/JPEG/WebP blob) into a textured GLB. */
-export async function imageToGlb(image: Blob, quality: Quality, seed: number, onProgress: (p: Progress) => void, signal: AbortSignal): Promise<ArrayBuffer> {
-  const token = labSettings().token;
-  if (!token) throw new HFError('Text-to-3D needs HF_TOKEN in .env.local.', true);
+export async function imageToGlb(
+  token: string,
+  image: Blob,
+  quality: Quality,
+  seed: number,
+  onProgress: (p: Progress) => void,
+  signal: AbortSignal,
+): Promise<ArrayBuffer> {
+  if (!token) throw new HFError('Text to 3D needs your Hugging Face token.', true);
   const q = QUALITY[quality];
   onProgress({ stage: 'Connecting', detail: space3d() });
   let client: Client;

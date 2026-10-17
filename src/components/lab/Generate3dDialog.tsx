@@ -21,6 +21,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
+import { useLabAiEnabled } from '@/lab/ai-token';
 import { ACCEPTED_IMAGE_TYPES, loadReferenceImage } from '@/lab/reference-image';
 import { useLabStore, type Generate3dOptions } from '@/lab/store';
 import { generateConceptImage } from '@/lab/textures';
@@ -69,7 +70,7 @@ export function Generate3dDialog({ open, onClose }: { open: boolean; onClose: ()
   const [mode, setMode] = useState<Generate3dOptions['mode']>('add');
   const [height, setHeight] = useState(0.5);
   const fileInput = useRef<HTMLInputElement>(null);
-  const aiEnabled = Boolean(health?.ai_enabled);
+  const aiEnabled = useLabAiEnabled();
 
   const makeConcept = async () => {
     setError(null);
@@ -111,7 +112,7 @@ export function Generate3dDialog({ open, onClose }: { open: boolean; onClose: ()
         </Typography>
         {!aiEnabled && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Text to 3D needs HF_TOKEN in .env.local (restart the server after adding it).
+            Text to 3D needs your Hugging Face token. Add it with the token button in the top bar.
           </Alert>
         )}
 

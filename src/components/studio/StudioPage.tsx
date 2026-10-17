@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react';
 import { createSampleScene } from '@/core/scene/sample-scene';
 import { createEmptyDocument } from '@/core/schema/scene';
 import { loadAutosave, saveAutosave } from '@/persistence/autosave';
-import { hasSeenTour } from '@/persistence/tour';
+import { hasSeenTour, STUDIO_TOUR_KEY } from '@/persistence/tour';
 import { useAiStore } from '@/state/ai-store';
 import { useSceneStore } from '@/state/scene-store';
 import { notify, useUiStore } from '@/state/ui-store';
@@ -176,7 +176,7 @@ export function StudioPage() {
   useKeyboardShortcuts();
 
   useEffect(() => {
-    if (hydrated && !hasSeenTour()) useUiStore.getState().startTour();
+    if (hydrated && !hasSeenTour(STUDIO_TOUR_KEY)) useUiStore.getState().startTour();
   }, [hydrated]);
 
   const left = (
