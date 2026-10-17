@@ -1,17 +1,39 @@
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
-/** Early-access form on the BUILD3ds site, tagged so visits from 3DTool show up in analytics. */
-export const BUILD3DS_URL =
-  'https://www.build3ds.com/?utm_source=3dtool&utm_medium=app&utm_campaign=early_access&utm_content=footer#access';
+/** BUILD3ds website, tagged so visits from 3DTool show up in analytics. */
+export const BUILD3DS_URL = 'https://www.build3ds.com/?utm_source=3dtool&utm_medium=app&utm_campaign=premium&utm_content=footer';
 
-/**
- * Slim footer on every page that points people who need more than procedural shapes to BUILD3ds:
- * accurate, true-to-scale 3D from real photos, editable by prompt and viewable in AR.
- */
+/** The BUILD3ds mark (the site's cube icon) and wordmark, with the "3" in the brand blue. */
+function Build3dsLogo() {
+  return (
+    <Box
+      component="a"
+      href={BUILD3DS_URL}
+      target="_blank"
+      rel="noopener"
+      aria-label="BUILD3ds website"
+      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: 'text.primary', textDecoration: 'none', flexShrink: 0 }}
+    >
+      <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#131313" />
+        <path d="M32 14 48 23v18l-16 9-16-9V23z" fill="none" stroke="#f2efe9" strokeWidth="3.5" strokeLinejoin="round" />
+        <path d="M16 23l16 9 16-9M32 32v18" fill="none" stroke="#f2efe9" strokeWidth="3.5" strokeLinejoin="round" />
+      </svg>
+      <Box component="span" sx={{ fontWeight: 650, fontSize: 16, letterSpacing: '-0.03em' }}>
+        BUILD
+        <Box component="span" sx={{ color: '#2448e0' }}>
+          3
+        </Box>
+        ds
+      </Box>
+    </Box>
+  );
+}
+
+/** Slim footer on every page: "For premium features, visit BUILD3ds" with the logo and a button to the site. */
 export function Build3dsFooter() {
   return (
     <Box
@@ -19,7 +41,8 @@ export function Build3dsFooter() {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1.5,
+        justifyContent: 'center',
+        gap: 1.25,
         px: 2,
         py: 0.75,
         borderTop: 1,
@@ -28,18 +51,15 @@ export function Build3dsFooter() {
         flexShrink: 0,
       }}
     >
-      <AutoAwesomeIcon fontSize="small" color="primary" sx={{ display: { xs: 'none', sm: 'block' } }} />
-      <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
-        <Box component="strong" sx={{ fontWeight: 650, display: { xs: 'none', sm: 'inline' } }}>
-          Need true-to-scale 3D of real products?
+      <Typography variant="body2" color="text.secondary" noWrap>
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+          For premium features, visit
         </Box>
-        <Box component="strong" sx={{ fontWeight: 650, display: { xs: 'inline', sm: 'none' } }}>
-          Need accurate 3D?
-        </Box>{' '}
-        <Box component="span" sx={{ color: 'text.secondary', display: { xs: 'none', lg: 'inline' } }}>
-          BUILD3ds makes accurate 3D from a few photos, editable by asking and viewable in your room.
+        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+          Premium features:
         </Box>
       </Typography>
+      <Build3dsLogo />
       <Button
         variant="contained"
         size="small"
@@ -49,7 +69,12 @@ export function Build3dsFooter() {
         endIcon={<OpenInNewIcon fontSize="inherit" />}
         sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
       >
-        Get early access
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+          Visit website
+        </Box>
+        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+          Visit
+        </Box>
       </Button>
     </Box>
   );
