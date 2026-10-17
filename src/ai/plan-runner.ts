@@ -20,6 +20,7 @@ export async function requestValidatedPlan(
   sceneContext: CompactSceneContext,
   dryRun: PlanDryRun,
   onProgress?: (info: { attempt: 1 | 2; tokens: number }) => void,
+  image?: string,
 ): Promise<PlanRunResult> {
   const rawOutputs: string[] = [];
 
@@ -32,7 +33,7 @@ export async function requestValidatedPlan(
   };
 
   onProgress?.({ attempt: 1, tokens: 0 });
-  const first = await planner.generatePlan({ userText, sceneContext, onToken: (tokens) => onProgress?.({ attempt: 1, tokens }) });
+  const first = await planner.generatePlan({ userText, sceneContext, image, onToken: (tokens) => onProgress?.({ attempt: 1, tokens }) });
   rawOutputs.push(first);
   const firstResult = evaluate(first);
   if (firstResult.ok) return { ok: true, plan: firstResult.plan, rawOutputs };
@@ -41,6 +42,7 @@ export async function requestValidatedPlan(
   const second = await planner.generatePlan({
     userText,
     sceneContext,
+    image,
     correction: { previousOutput: first, error: firstResult.error },
     onToken: (tokens) => onProgress?.({ attempt: 2, tokens }),
   });

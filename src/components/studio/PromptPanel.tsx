@@ -1,6 +1,8 @@
 'use client';
 
+import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ReplayIcon from '@mui/icons-material/Replay';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
@@ -11,6 +13,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -18,7 +21,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { modelKey } from '@/ai/model-config';
 import { requiresConfirmation } from '@/core/commands/dispatcher';
 import { parsePlanText } from '@/core/commands/parser';
@@ -30,6 +33,7 @@ import { useSceneStore } from '@/state/scene-store';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ModelSettingsDialog } from './ModelSettingsDialog';
 import { ModelStatusCard } from './ModelStatusCard';
+import { ACCEPTED_IMAGE_TYPES, loadReferenceImage } from './reference-image';
 import { useAiPlanner } from './useAiPlanner';
 
 const SAMPLE_PROMPTS = [
@@ -84,7 +88,7 @@ function describeOps(plan: ScenePlan): string[] {
   });
 }
 
-function GenerationStatus() {
+function GenerationStatus({ hosted }: { hosted: boolean }) {
   const generation = useAiStore((s) => s.generation);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -93,13 +97,14 @@ function GenerationStatus() {
   }, []);
   const seconds = generation ? Math.max(0, Math.round((now - generation.startedAt) / 1000)) : 0;
   let detail = 'Reading your prompt and the scene…';
+  if (hosted) detail = 'Waiting for the Hugging Face model…';
   if (generation && generation.tokens > 0) detail = `Writing the plan: ${generation.tokens} tokens`;
   if (generation?.attempt === 2) detail = `First reply was invalid, retrying once. ${detail}`;
   return (
     <Box sx={{ mt: 1 }} aria-live="polite">
       <LinearProgress />
       <Typography variant="caption" color="text.secondary">
-        {detail} · {seconds}s on your CPU
+        {detail} · {seconds}s{hosted ? '' : ' on your CPU'}
       </Typography>
     </Box>
   );
@@ -121,9 +126,21 @@ export function PromptPanel() {
   const [downloadPrompt, setDownloadPrompt] = useState<string | null | undefined>(undefined);
   const [confirmPlan, setConfirmPlan] = useState<PendingPlan | null>(null);
   const [reviewPlan, setReviewPlan] = useState<(PendingPlan & { text: string; error: string | null }) | null>(null);
+  const [image, setImage] = useState<{ url: string; name: string } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const busy = status === 'loading' || status === 'generating';
+  const hosted = !('error' in resolved) && resolved.runtime === 'hosted';
+  const acceptsImages = !('error' in resolved) && resolved.supportsImages;
   const modelLabel = 'error' in resolved ? 'invalid model' : `${resolved.modelId} (${resolved.dtype})`;
+
+  const attachImage = async (file: File) => {
+    try {
+      setImage({ url: await loadReferenceImage(file), name: file.name || 'pasted image' });
+    } catch (e) {
+      setOutcome({ severity: 'error', text: e instanceof Error ? e.message : 'Could not read the image.' });
+    }
+  };
   const addHistory = (entry: Omit<PromptHistoryEntry, 'id' | 'at' | 'model'>) =>
     useAiStore.getState().addHistory({ ...entry, model: modelLabel });
 
@@ -142,7 +159,7 @@ export function PromptPanel() {
     setLastPrompt(text);
     setOutcome(null);
     setRawOutputs([]);
-    const res = await generate(text);
+    const res = await generate(text, acceptsImages ? image?.url : undefined);
     setRawOutputs(res.rawOutputs);
     if (!res.ok) {
       const cancelled = 'cancelled' in res;
@@ -181,7 +198,7 @@ export function PromptPanel() {
         setOutcome({ severity: 'error', text: resolved.error });
         return;
       }
-      if (!downloadAcknowledged(modelKey(resolved))) {
+      if (!hosted && !downloadAcknowledged(modelKey(resolved))) {
         setDownloadPrompt(text);
         return;
       }
@@ -200,7 +217,7 @@ export function PromptPanel() {
 
   const requestLoad = () => {
     if ('error' in resolved) return;
-    if (downloadAcknowledged(modelKey(resolved))) void startLoad(null);
+    if (hosted || downloadAcknowledged(modelKey(resolved))) void startLoad(null);
     else setDownloadPrompt(null);
   };
 
@@ -223,9 +240,21 @@ export function PromptPanel() {
           minRows={3}
           maxRows={8}
           fullWidth
-          placeholder="e.g. Create a walnut table 1.8 m wide and put a lamp on top"
+          placeholder={
+            acceptsImages
+              ? 'e.g. Build the chair in this photo, or create a walnut table 1.8 m wide'
+              : 'e.g. Create a walnut table 1.8 m wide and put a lamp on top'
+          }
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          onPaste={(e) => {
+            if (!acceptsImages) return;
+            const file = Array.from(e.clipboardData.files).find((f) => ACCEPTED_IMAGE_TYPES.includes(f.type));
+            if (file) {
+              e.preventDefault();
+              void attachImage(file);
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
@@ -234,9 +263,52 @@ export function PromptPanel() {
           }}
           disabled={busy}
           slotProps={{ htmlInput: { maxLength: LIMITS.maxPromptLength } }}
-          helperText={`${prompt.length}/${LIMITS.maxPromptLength} · Ctrl+Enter to generate`}
+          helperText={`${prompt.length}/${LIMITS.maxPromptLength} · Ctrl+Enter to generate${acceptsImages ? ' · paste or attach an image' : ''}`}
         />
+        {acceptsImages && image && (
+          <Box sx={{ mt: 1, position: 'relative', display: 'inline-block' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview */}
+            <img
+              src={image.url}
+              alt={`Reference image: ${image.name}`}
+              style={{ display: 'block', maxWidth: '100%', maxHeight: 140, borderRadius: 4 }}
+            />
+            <IconButton
+              size="small"
+              aria-label="Remove reference image"
+              onClick={() => setImage(null)}
+              disabled={busy}
+              sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'background.paper', '&:hover': { bgcolor: 'background.paper' } }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
         <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+          {acceptsImages && (
+            <>
+              <input
+                ref={fileInput}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) void attachImage(file);
+                }}
+              />
+              <Button
+                variant="outlined"
+                onClick={() => fileInput.current?.click()}
+                disabled={busy}
+                aria-label="Attach reference image"
+                sx={{ minWidth: 0, px: 1.25 }}
+              >
+                <AddPhotoAlternateOutlinedIcon fontSize="small" />
+              </Button>
+            </>
+          )}
           {status === 'generating' ? (
             <Button variant="outlined" color="inherit" startIcon={<StopCircleOutlinedIcon />} onClick={cancel} fullWidth>
               Cancel
@@ -249,11 +321,11 @@ export function PromptPanel() {
               disabled={busy || !prompt.trim()}
               fullWidth
             >
-              {isLoaded ? 'Generate' : 'Load model & generate'}
+              {isLoaded || hosted ? 'Generate' : 'Load model & generate'}
             </Button>
           )}
         </Stack>
-        {status === 'generating' && <GenerationStatus />}
+        {status === 'generating' && <GenerationStatus hosted={hosted} />}
       </Box>
 
       {outcome && (
@@ -378,8 +450,10 @@ export function PromptPanel() {
       )}
 
       <Typography variant="caption" color="text.secondary">
-        Prompts are interpreted on this device by a small open model; model files are downloaded from Hugging Face. The AI
-        only proposes a restricted JSON plan — the app validates it and builds every object from procedural Three.js
+        {hosted
+          ? 'Prompts and any attached image are sent through this app’s server to a vision model on Hugging Face Inference.'
+          : 'Prompts are interpreted on this device by a small open model; model files are downloaded from Hugging Face.'}{' '}
+        The AI only proposes a restricted JSON plan — the app validates it and builds every object from procedural Three.js
         geometry. It works best for furniture and basic shapes, not realistic organic objects.
       </Typography>
 

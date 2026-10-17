@@ -28,12 +28,13 @@ export function ModelStatusCard({ resolved, isLoaded, onLoad, onOpenSettings }: 
   const threads = useAiStore((s) => s.threads);
   const hasToken = useAiStore((s) => Boolean(s.token));
   const invalid = 'error' in resolved;
+  const hosted = !invalid && resolved.runtime === 'hosted';
   const loading = status === 'loading';
 
   let stateLabel = 'Not loaded';
   let stateColor: 'default' | 'success' | 'warning' | 'info' = 'default';
   if (loading) {
-    stateLabel = 'Loading…';
+    stateLabel = hosted ? 'Connecting…' : 'Loading…';
     stateColor = 'info';
   } else if (status === 'generating') {
     stateLabel = 'Thinking…';
@@ -54,10 +55,12 @@ export function ModelStatusCard({ resolved, isLoaded, onLoad, onOpenSettings }: 
       </Stack>
       {!invalid && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all' }}>
-          {resolved.modelId} · {resolved.dtype} · CPU / WebAssembly{hasToken ? ' · token set' : ''}
+          {hosted
+            ? `${resolved.modelId} · Hugging Face Inference · accepts images`
+            : `${resolved.modelId} · ${resolved.dtype} · CPU / WebAssembly${hasToken ? ' · token set' : ''}`}
         </Typography>
       )}
-      {loading && (
+      {loading && !hosted && (
         <Box sx={{ mt: 1 }}>
           <LinearProgress
             variant={progress?.percent != null ? 'determinate' : 'indeterminate'}
@@ -70,7 +73,7 @@ export function ModelStatusCard({ resolved, isLoaded, onLoad, onOpenSettings }: 
           </Typography>
         </Box>
       )}
-      {isLoaded && lastLoadMs !== null && lastLoadMs > 0 && !loading && (
+      {isLoaded && !hosted && lastLoadMs !== null && lastLoadMs > 0 && !loading && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
           Loaded in {(lastLoadMs / 1000).toFixed(1)} s
           {threads !== null && ` · ${threads} CPU thread${threads === 1 ? '' : 's'}`}
@@ -79,7 +82,7 @@ export function ModelStatusCard({ resolved, isLoaded, onLoad, onOpenSettings }: 
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
         {!isLoaded && (
           <Button size="small" variant="outlined" onClick={onLoad} disabled={loading || invalid || status === 'generating'}>
-            Load model
+            {hosted ? 'Connect' : 'Load model'}
           </Button>
         )}
         <Button size="small" startIcon={<TuneIcon />} onClick={onOpenSettings} disabled={loading}>

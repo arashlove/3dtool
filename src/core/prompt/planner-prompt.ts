@@ -86,16 +86,24 @@ const EXAMPLES: ChatMessage[] = [
   },
 ];
 
-export function buildUserMessage(userText: string, context: CompactSceneContext): string {
+const IMAGE_NOTE =
+  'A reference image is attached. Recreate what it shows using only the supported kinds: match colours, materials and rough proportions in metres. Leave out anything that is not supported.';
+
+export function buildUserMessage(userText: string, context: CompactSceneContext, options: { hasImage?: boolean } = {}): string {
   const text = userText.trim().slice(0, LIMITS.maxPromptLength);
-  return `Scene:\n${formatSceneContext(context)}\nRequest: ${text}`;
+  const image = options.hasImage ? `\n${IMAGE_NOTE}` : '';
+  return `Scene:\n${formatSceneContext(context)}${image}\nRequest: ${text}`;
 }
 
-export function createPlannerPrompt(userText: string, context: CompactSceneContext): ChatMessage[] {
+export function createPlannerPrompt(
+  userText: string,
+  context: CompactSceneContext,
+  options: { hasImage?: boolean } = {},
+): ChatMessage[] {
   return [
     { role: 'system', content: PLANNER_SYSTEM_PROMPT },
     ...EXAMPLES,
-    { role: 'user', content: buildUserMessage(userText, context) },
+    { role: 'user', content: buildUserMessage(userText, context, options) },
   ];
 }
 

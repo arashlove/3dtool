@@ -1,6 +1,17 @@
 # Model notes
 
-## Runtime
+## Hosted vision model (default)
+
+- `src/app/api/plan/route.ts` forwards the planner prompt, plus an optional reference image, to
+  `https://router.huggingface.co/v1/chat/completions` with `temperature: 0` and `max_tokens: 384`.
+- The default model is `Qwen/Qwen3-VL-30B-A3B-Instruct`; any image-text-to-text model served by an
+  inference provider can be picked in Model settings (optionally with a `:fastest`, `:cheapest` or
+  `:provider` suffix).
+- Images are downscaled in the browser to at most 1024 px on the long side and sent as JPEG data URLs.
+- The token is the server's `HF_TOKEN` (see `docs/DEPLOYMENT.md`). Plan quality with this model has not
+  been measured yet.
+
+## On-device runtime
 
 - [Transformers.js](https://huggingface.co/docs/transformers.js) 4.x in a module Web Worker, with
   `device: 'wasm'` (CPU only, no WebGPU).

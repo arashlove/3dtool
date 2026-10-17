@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import {
-  DEFAULT_PRESET_ID,
+  DEFAULT_SELECTION,
   MODEL_DTYPES,
   MODEL_PRESETS,
   type ModelDtype,
@@ -57,6 +57,9 @@ function readSelection(raw: string | null): ModelSelection | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw) as Partial<{ kind: string; presetId: string; modelId: string; dtype: string }>;
+    if (value.kind === 'hosted' && typeof value.modelId === 'string') {
+      return { kind: 'hosted', modelId: value.modelId.slice(0, 200) };
+    }
     if (value.kind === 'preset' && MODEL_PRESETS.some((p) => p.id === value.presetId)) {
       return { kind: 'preset', presetId: value.presetId as ModelPreset['id'] };
     }
@@ -78,7 +81,7 @@ function storage(kind: 'local' | 'session'): Storage | null {
 }
 
 export const useAiStore = create<AiState>((set, get) => ({
-  selection: { kind: 'preset', presetId: DEFAULT_PRESET_ID },
+  selection: DEFAULT_SELECTION,
   token: null,
   rememberToken: false,
   status: 'idle',

@@ -1,8 +1,30 @@
 # Deployment
 
-3DTool runs as **one CPU-only web service**. The server only serves the built Next.js app. AI
-inference, scene state and autosave all happen in the visitor's browser, so the container needs no GPU,
-no model weights, no volume and no secrets.
+3DTool runs as **one CPU-only web service**. Scene state and autosave happen in the visitor's browser.
+AI planning uses either the hosted vision model (default), which the server calls through
+`/api/plan` on Hugging Face Inference Providers, or an on-device model in the browser. The container
+needs no GPU, no model weights and no volume.
+
+## Hugging Face token
+
+The hosted vision model needs one secret, `HF_TOKEN`: a Hugging Face token with the
+"Make calls to Inference Providers" permission (https://huggingface.co/settings/tokens). The server
+reads it at request time; it is never sent to the browser.
+
+- **Local:** copy `.env.example` to `.env.local` in the project root, set `HF_TOKEN=hf_...`, restart
+  `npm run dev`. `.env.local` is gitignored and excluded from the Docker build.
+- **Docker:** `docker run --rm -p 3000:3000 -e HF_TOKEN=hf_... 3dtool`.
+- **Zenith:** `zenith-compose.yml` declares `HF_TOKEN` as a secret input; set it in the deployment's
+  credentials panel.
+
+The Future Lab mesh editor uses the same token for its planner (`HF_LLM_MODEL`), vision model
+(`HF_VLM_MODEL`) and text-to-image model (`HF_IMAGE_MODEL`), routed through `HF_PROVIDER`; see
+`.env.example` for the defaults. Without a token the Lab falls back to an offline keyword planner and
+procedural textures; texture segmentation never needs a token.
+
+`HF_VISION_MODEL` optionally changes the default model (`Qwen/Qwen3-VL-30B-A3B-Instruct`). Calls are
+billed to the token's Hugging Face account, and anyone who can reach a public deployment can use it,
+so watch usage or add rate limiting before sharing the URL widely.
 
 ## Container
 

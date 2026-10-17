@@ -13,6 +13,8 @@ export interface TextPlanner {
     userText: string;
     sceneContext: CompactSceneContext;
     correction?: PlanCorrection;
+    /** Optional reference image as a data URL. Only planners backed by a vision model accept it. */
+    image?: string;
     /** Called with the running count of generated tokens. */
     onToken?: (tokens: number) => void;
   }): Promise<string>;

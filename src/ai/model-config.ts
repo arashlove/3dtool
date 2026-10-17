@@ -67,40 +67,95 @@ export const MODEL_PRESETS: readonly ModelPreset[] = [
 
 export const DEFAULT_PRESET_ID: ModelPreset['id'] = 'standard';
 
+/**
+ * Hosted vision-language model called through Hugging Face Inference Providers by the app server.
+ * The server reads the token from the HF_TOKEN environment variable; it never reaches the browser.
+ * See https://huggingface.co/models?inference_provider=all&pipeline_tag=image-text-to-text
+ */
+export const DEFAULT_HOSTED_MODEL_ID = 'Qwen/Qwen3-VL-30B-A3B-Instruct';
+
+/** "owner/name" with an optional ":provider" or ":fastest"/":cheapest" routing suffix. */
+export const HOSTED_MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,95}\/[A-Za-z0-9][A-Za-z0-9._-]{0,95}(:[a-z0-9-]{1,40})?$/;
+
 /** "owner/name" Hugging Face repo id. */
 export const MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,95}\/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/;
 
 export type ModelSelection =
+  | { kind: 'hosted'; modelId: string }
   | { kind: 'preset'; presetId: ModelPreset['id'] }
   | { kind: 'custom'; modelId: string; dtype: ModelDtype };
 
-export type ResolvedModel = {
-  modelId: string;
-  dtype: ModelDtype;
-  label: string;
-  approxDownloadMB: number | null;
-  isCustom: boolean;
-};
+export const DEFAULT_SELECTION: ModelSelection = { kind: 'hosted', modelId: DEFAULT_HOSTED_MODEL_ID };
+
+export type ResolvedModel =
+  | {
+      runtime: 'browser';
+      modelId: string;
+      dtype: ModelDtype;
+      label: string;
+      approxDownloadMB: number | null;
+      isCustom: boolean;
+      supportsImages: false;
+    }
+  | {
+      runtime: 'hosted';
+      modelId: string;
+      dtype: 'hosted';
+      label: string;
+      approxDownloadMB: null;
+      isCustom: boolean;
+      supportsImages: true;
+    };
 
 export function resolveModel(selection: ModelSelection): ResolvedModel | { error: string } {
+  if (selection.kind === 'hosted') {
+    const id = selection.modelId.trim() || DEFAULT_HOSTED_MODEL_ID;
+    if (!HOSTED_MODEL_ID_PATTERN.test(id)) return { error: 'Enter a Hugging Face model id like "owner/model-name".' };
+    return {
+      runtime: 'hosted',
+      modelId: id,
+      dtype: 'hosted',
+      label: 'Vision (HF Inference)',
+      approxDownloadMB: null,
+      isCustom: id !== DEFAULT_HOSTED_MODEL_ID,
+      supportsImages: true,
+    };
+  }
   if (selection.kind === 'preset') {
     const preset = MODEL_PRESETS.find((p) => p.id === selection.presetId) ?? MODEL_PRESETS.find((p) => p.id === DEFAULT_PRESET_ID)!;
     return {
+      runtime: 'browser',
       modelId: preset.modelId,
       dtype: preset.dtype,
       label: preset.label,
       approxDownloadMB: preset.approxDownloadMB,
       isCustom: false,
+      supportsImages: false,
     };
   }
   const id = selection.modelId.trim();
   if (!MODEL_ID_PATTERN.test(id)) return { error: 'Enter a Hugging Face model id like "owner/model-name".' };
   if (!(MODEL_DTYPES as readonly string[]).includes(selection.dtype)) return { error: 'Unsupported quantization.' };
-  return { modelId: id, dtype: selection.dtype, label: 'Custom', approxDownloadMB: null, isCustom: true };
+  return {
+    runtime: 'browser',
+    modelId: id,
+    dtype: selection.dtype,
+    label: 'Custom',
+    approxDownloadMB: null,
+    isCustom: true,
+    supportsImages: false,
+  };
 }
 
 export const modelKey = (m: { modelId: string; dtype: string }) => `${m.modelId}@${m.dtype}`;
 
 export const GENERATION_SETTINGS = {
   maxNewTokens: 384,
+} as const;
+
+/** Reference images are downscaled in the browser before upload. */
+export const IMAGE_LIMITS = {
+  maxSidePx: 1024,
+  /** Length of the base64 data URL accepted by the server. */
+  maxDataUrlChars: 4_000_000,
 } as const;

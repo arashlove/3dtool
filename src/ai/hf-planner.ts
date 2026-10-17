@@ -3,6 +3,8 @@ import { GENERATION_SETTINGS, type ResolvedModel } from './model-config';
 import type { TextPlanner } from './planner.interface';
 import type { ModelProgress, WorkerRequest, WorkerResponse } from './worker-types';
 
+type BrowserModel = Extract<ResolvedModel, { runtime: 'browser' }>;
+
 type Pending = {
   resolve: (value: WorkerResponse) => void;
   reject: (error: Error) => void;
@@ -18,7 +20,7 @@ export class HuggingFaceWorkerPlanner implements TextPlanner {
   readonly isMock = false;
   private worker: Worker | null = null;
   private pending = new Map<string, Pending>();
-  private model: ResolvedModel | null = null;
+  private model: BrowserModel | null = null;
   private token: string | null = null;
   private activeGeneration: string | null = null;
   /** WASM threads used by the last loaded model (1 when the page is not cross-origin isolated). */
@@ -28,7 +30,7 @@ export class HuggingFaceWorkerPlanner implements TextPlanner {
     return this.model ? `${this.model.modelId} (${this.model.dtype}, CPU/WASM)` : 'Hugging Face model (not configured)';
   }
 
-  configure(model: ResolvedModel, token: string | null) {
+  configure(model: BrowserModel, token: string | null) {
     this.model = model;
     this.token = token && token.trim() ? token.trim() : null;
   }

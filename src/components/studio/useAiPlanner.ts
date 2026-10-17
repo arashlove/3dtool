@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { CancelledError, getHuggingFacePlanner } from '@/ai/hf-planner';
+import { getHostedPlanner } from '@/ai/hosted-planner';
 import { modelKey, resolveModel, type ResolvedModel } from '@/ai/model-config';
 import { requestValidatedPlan, type PlanRunResult } from '@/ai/plan-runner';
 import type { ModelProgress } from '@/ai/worker-types';
@@ -19,6 +20,10 @@ export function browserSupportProblem(): string | null {
   if (typeof WebAssembly === 'undefined') return 'This browser does not support WebAssembly, which the local model needs.';
   if (typeof Worker === 'undefined') return 'This browser does not support Web Workers, which the local model needs.';
   return null;
+}
+
+function plannerFor(model: ResolvedModel) {
+  return model.runtime === 'hosted' ? getHostedPlanner() : getHuggingFacePlanner();
 }
 
 function createProgressTracker(onUpdate: (p: { percent: number | null; loaded: number; total: number; file: string | null }) => void) {
@@ -58,13 +63,14 @@ export function useAiPlanner() {
       ai.setStatus('error', model.error);
       return false;
     }
-    const support = browserSupportProblem();
+    const support = model.runtime === 'browser' ? browserSupportProblem() : null;
     if (support) {
       ai.setStatus('error', support);
       return false;
     }
-    const planner = getHuggingFacePlanner();
-    planner.configure(model, ai.token);
+    const planner = plannerFor(model);
+    if (model.runtime === 'hosted') getHostedPlanner().configure(model);
+    else getHuggingFacePlanner().configure(model, ai.token);
     ai.setStatus('loading');
     ai.setProgress({ percent: null, loadedBytes: 0, totalBytes: 0, file: null });
     const started = performance.now();
@@ -78,21 +84,26 @@ export function useAiPlanner() {
       return true;
     } catch (e) {
       const message = (e instanceof Error ? e.message : String(e)).replace(/\.+$/, '');
-      const hint = /401|403|gated|unauthori[sz]ed/i.test(message)
-        ? ' This model may be gated or private: add a Hugging Face token with access in Model settings.'
-        : /fetch|network|Failed to load/i.test(message)
-          ? ' Check your internet connection; model files are downloaded from huggingface.co.'
-          : '';
+      let hint = '';
+      if (model.runtime === 'browser') {
+        if (/401|403|gated|unauthori[sz]ed/i.test(message)) {
+          hint = ' This model may be gated or private: add a Hugging Face token with access in Model settings.';
+        } else if (/fetch|network|Failed to load/i.test(message)) {
+          hint = ' Check your internet connection; model files are downloaded from huggingface.co.';
+        }
+      }
       useAiStore.getState().setProgress(null);
       useAiStore.getState().setStatus('error', `Could not load the model: ${message}.${hint}`);
       return false;
     }
   }, []);
 
-  const generate = useCallback(async (prompt: string): Promise<GenerateResult> => {
+  const generate = useCallback(async (prompt: string, image?: string): Promise<GenerateResult> => {
     const { doc, selectedId } = useSceneStore.getState();
     const context = buildCompactSceneContext(doc, selectedId);
-    const planner = getHuggingFacePlanner();
+    const model = resolveModel(useAiStore.getState().selection);
+    const planner = 'error' in model ? getHuggingFacePlanner() : plannerFor(model);
+    const supportsImages = !('error' in model) && model.supportsImages;
     useAiStore.getState().setStatus('generating');
     const started = performance.now();
     const startedAt = Date.now();
@@ -107,6 +118,7 @@ export function useAiPlanner() {
           return r.ok ? null : r.error;
         },
         ({ attempt, tokens }) => useAiStore.getState().setGeneration({ attempt, tokens, startedAt }),
+        supportsImages ? image : undefined,
       );
       useAiStore.getState().setStatus('ready');
       return { ...result, aliases: context.aliases, elapsedMs: Math.round(performance.now() - started) };
@@ -124,7 +136,10 @@ export function useAiPlanner() {
     }
   }, []);
 
-  const cancel = useCallback(() => getHuggingFacePlanner().cancel(), []);
+  const cancel = useCallback(() => {
+    getHuggingFacePlanner().cancel();
+    getHostedPlanner().cancel();
+  }, []);
 
   return { resolved, isLoaded, loadModel, generate, cancel };
 }
