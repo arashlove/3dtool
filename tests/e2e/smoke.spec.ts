@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-// Smoke tests cover navigation and manual editing only; they never download a model.
+// Smoke tests cover navigation and manual editing only; they never call a model.
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('3dtool:tour-seen:v1', '1'));
+});
 
 test('root redirects to the studio', async ({ page }) => {
   await page.goto('/');

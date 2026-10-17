@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { createSampleScene } from '@/core/scene/sample-scene';
 import { createEmptyDocument } from '@/core/schema/scene';
 import { loadAutosave, saveAutosave } from '@/persistence/autosave';
+import { hasSeenTour } from '@/persistence/tour';
 import { useAiStore } from '@/state/ai-store';
 import { useSceneStore } from '@/state/scene-store';
 import { notify, useUiStore } from '@/state/ui-store';
@@ -23,6 +24,7 @@ import { Inspector } from '../editor/Inspector';
 import { ObjectTree } from '../editor/ObjectTree';
 import { ProjectBar } from './ProjectBar';
 import { PromptPanel } from './PromptPanel';
+import { StudioTour } from './StudioTour';
 
 const SceneCanvas = dynamic(() => import('../canvas/SceneCanvas'), {
   ssr: false,
@@ -87,7 +89,7 @@ function useKeyboardShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isEditableTarget(e.target)) return;
-      if (document.querySelector('.MuiDialog-root')) return;
+      if (document.querySelector('.MuiDialog-root, [data-tour-open]')) return;
       const s = useSceneStore.getState();
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z') {
@@ -170,7 +172,12 @@ export function StudioPage() {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const hydrated = useHydrateAndAutosave();
+  const tourOpen = useUiStore((s) => s.tourOpen);
   useKeyboardShortcuts();
+
+  useEffect(() => {
+    if (hydrated && !hasSeenTour()) useUiStore.getState().startTour();
+  }, [hydrated]);
 
   const left = (
     <Box sx={{ width: compact ? 'min(92vw, 360px)' : PANEL_WIDTH, height: '100%', overflowY: 'auto' }}>
@@ -195,12 +202,12 @@ export function StudioPage() {
             {left}
           </Drawer>
         ) : (
-          <Box component="aside" aria-label="AI prompt" sx={{ borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+          <Box component="aside" aria-label="AI prompt" data-tour="prompt" sx={{ borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
             {left}
           </Box>
         )}
 
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Box data-tour="canvas" sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }} data-testid="scene-canvas">
             {hydrated && <SceneCanvas />}
             {hydrated && <EmptyState />}
@@ -213,12 +220,13 @@ export function StudioPage() {
             {right}
           </Drawer>
         ) : (
-          <Box component="aside" aria-label="Objects and inspector" sx={{ borderLeft: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
+          <Box component="aside" aria-label="Objects and inspector" data-tour="objects" sx={{ borderLeft: 1, borderColor: 'divider', bgcolor: 'background.paper', flexShrink: 0 }}>
             {right}
           </Box>
         )}
       </Box>
       <Notifications />
+      {tourOpen && <StudioTour compact={compact} />}
     </Box>
   );
 }

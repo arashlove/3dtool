@@ -32,11 +32,12 @@ import { ModelStatusCard } from './ModelStatusCard';
 import { useAiPlanner } from './useAiPlanner';
 
 const SAMPLE_PROMPTS = [
-  'Create a modern oak desk with four matte black metal legs, 160 cm wide.',
-  'Add a blue chair to the right of the desk with a 15 cm gap.',
-  'Make the selected object 20 cm wider.',
-  'Add a tall white bookshelf with 6 boards.',
-  'Create a floor lamp with a cream shade.',
+  'Add a red chair.',
+  'Add an oak table 160 cm wide.',
+  'Add a white shelf with 6 boards.',
+  'Add a floor lamp with a cream shade.',
+  'Add a grey sofa.',
+  'Add a blue sphere.',
 ];
 
 const SUPPORTED_TEXT = `Supported: ${OBJECT_KINDS.map((k) => KIND_DEFS[k].label.toLowerCase()).join(', ')}.`;
@@ -335,12 +336,6 @@ export function PromptPanel() {
           </List>
         </Box>
       )}
-
-      <Typography variant="caption" color="text.secondary">
-        Prompts and a short scene summary are sent from your browser to Hugging Face Inference Providers using your
-        token. The AI only proposes a restricted JSON plan — the app validates it and builds every object from procedural
-        Three.js geometry. It works best for furniture and basic shapes, not realistic organic objects.
-      </Typography>
 
       <ModelSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 

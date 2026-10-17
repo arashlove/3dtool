@@ -4,6 +4,7 @@ import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -21,7 +22,7 @@ import { createSampleScene } from '@/core/scene/sample-scene';
 import { LIMITS } from '@/core/schema/constants';
 import { createEmptyDocument, type SceneDocument } from '@/core/schema/scene';
 import { useSceneStore } from '@/state/scene-store';
-import { notify } from '@/state/ui-store';
+import { notify, useUiStore } from '@/state/ui-store';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 function download(data: BlobPart, type: string, fileName: string) {
@@ -52,13 +53,14 @@ function BarButton({ compact, icon, label, onClick, disabled }: { compact: boole
 }
 
 /** Hides its tooltip on click; otherwise the drawer it opens covers the button and the tooltip never receives mouseleave. */
-function DrawerToggle({ title, label, icon, onClick }: { title: string; label: string; icon: ReactNode; onClick: () => void }) {
+function DrawerToggle({ title, label, icon, tour, onClick }: { title: string; label: string; icon: ReactNode; tour: string; onClick: () => void }) {
   const [tip, setTip] = useState(false);
   return (
     <Tooltip title={title} open={tip} onOpen={() => setTip(true)} onClose={() => setTip(false)}>
       <IconButton
         size="small"
         aria-label={label}
+        data-tour={tour}
         onClick={() => {
           setTip(false);
           onClick();
@@ -127,7 +129,7 @@ export function ProjectBar({ compact, onOpenPrompt, onOpenPanel }: Props) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
       {compact && onOpenPrompt && (
-        <DrawerToggle title="AI prompt" label="Open AI prompt panel" icon={<ChatOutlinedIcon fontSize="small" />} onClick={onOpenPrompt} />
+        <DrawerToggle title="AI prompt" label="Open AI prompt panel" icon={<ChatOutlinedIcon fontSize="small" />} tour="prompt-toggle" onClick={onOpenPrompt} />
       )}
       <InputBase
         value={titleDraft ?? title}
@@ -147,8 +149,9 @@ export function ProjectBar({ compact, onOpenPrompt, onOpenPanel }: Props) {
       <BarButton compact={compact} icon={<FolderOpenOutlinedIcon fontSize="small" />} label="Open" onClick={() => fileInput.current?.click()} />
       <BarButton compact={compact} icon={<SaveOutlinedIcon fontSize="small" />} label="Save JSON" onClick={save} />
       <BarButton compact={compact} icon={exporting ? <ViewInArOutlinedIcon fontSize="small" /> : <FileDownloadOutlinedIcon fontSize="small" />} label="Export GLB" onClick={() => void exportGlb()} disabled={!hasObjects || exporting} />
+      <BarButton compact={compact} icon={<HelpOutlineIcon fontSize="small" />} label="Tour" onClick={() => useUiStore.getState().startTour()} />
       {compact && onOpenPanel && (
-        <DrawerToggle title="Objects & inspector" label="Open objects and inspector panel" icon={<TuneIcon fontSize="small" />} onClick={onOpenPanel} />
+        <DrawerToggle title="Objects & inspector" label="Open objects and inspector panel" icon={<TuneIcon fontSize="small" />} tour="objects-toggle" onClick={onOpenPanel} />
       )}
       <input
         ref={fileInput}
