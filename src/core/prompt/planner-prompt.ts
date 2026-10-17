@@ -9,7 +9,9 @@ export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: stri
 function kindLines(): string {
   return OBJECT_KINDS.map((kind) => {
     const def = KIND_DEFS[kind];
-    const params = def.params.map((p) => `${p.key}=${p.default}`).join(',');
+    const params = def.params
+      .map((p) => (p.type === 'choice' ? `${p.key}=${p.default}[${p.options.join('|')}]` : `${p.key}=${p.default}`))
+      .join(',');
     return `${kind}(${params}) parts:${def.parts.map((p) => p.key).join(',')}`;
   }).join('\n');
 }
@@ -18,7 +20,7 @@ export const PLANNER_SYSTEM_PROMPT = `You turn requests about a 3D scene into ON
 
 Units are metres (50 cm = 0.5). Y is up. Rotations are degrees.
 
-Object kinds with parameters (defaults) and material parts:
+Object kinds with parameters (defaults; [a|b] lists the allowed style names) and material parts:
 ${kindLines()}
 
 MATERIAL = {"color":"#RRGGBB or colour word","preset":"${MATERIAL_PRESET_NAMES.join('|')}","metalness":0-1,"roughness":0-1,"opacity":0.2-1} (all fields optional)
@@ -34,7 +36,7 @@ Operations (at most ${LIMITS.maxOpsPerPlan}):
 T is "selected", an id such as "obj:2" from the scene list, or a "new:..." ref created earlier in the same reply.
 
 Reply format: {"version":1,"status":"ok","message":"short summary","operations":[...]}
-If the request needs things that are not in the kind list (animals, people, vehicles, plants, text, detailed organic shapes), reply {"version":1,"status":"unsupported","message":"why, and what is supported","operations":[]}.
+If the request needs things that are not in the kind list (animals, people, vehicles, text, detailed organic shapes), reply {"version":1,"status":"unsupported","message":"why, and what is supported","operations":[]}.
 If it is unclear which existing object is meant, reply {"version":1,"status":"clarify","message":"question","operations":[]}.
 
 Rules:
@@ -42,6 +44,7 @@ Rules:
 - For size changes to existing objects use set_params with the new absolute value computed from the current params.
 - "it"/"this" means the selected object.
 - Use place_relative for left/right/front/behind/on top; do not invent coordinates.
+- Wall items (picture_framed, mirror_rectangular, floating_shelf, window_single, wall-mounted TV) rest on the floor at y=0; set position y to hang them.
 - Use part names exactly as listed. Use "main" for the whole object.
 - Never output code, HTML or URLs.`;
 

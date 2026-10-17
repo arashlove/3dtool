@@ -30,7 +30,7 @@ const mat = (color: string, metalness: number, roughness: number, opacity?: numb
 export const ROOM_DEF: KindDef = {
   kind: 'room',
   label: 'Room',
-  category: 'furniture',
+  category: 'architecture',
   description: 'Room shell: floor, walls, optional door and window',
   params: [
     num('width', 'Width', 1.5, 10, 5),

@@ -23,8 +23,9 @@ export const Vec3PositionSchema = z.tuple([coord, coord, coord]);
 export const Vec3DegSchema = z.tuple([deg, deg, deg]);
 export const Vec3ScaleSchema = z.tuple([scl, scl, scl]);
 
+/** Strings are only style names; validateParams checks them against each kind's option list. */
 const ParamChanges = z
-  .record(PARAM_KEY, z.union([z.number(), z.boolean()]))
+  .record(PARAM_KEY, z.union([z.number(), z.boolean(), z.string().trim().max(32)]))
   .refine((r) => Object.keys(r).length <= 12, 'Too many parameter changes');
 
 export const TransformInputSchema = z.strictObject({

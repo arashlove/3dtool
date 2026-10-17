@@ -25,7 +25,7 @@ test('manual add, select, undo and redo work without the AI model', async ({ pag
   const before = await rows.count();
 
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Sofa' }).click();
+  await page.getByRole('menuitem', { name: 'Sofa', exact: true }).click();
   await expect(rows).toHaveCount(before + 1);
   await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(/Sofa/);
 

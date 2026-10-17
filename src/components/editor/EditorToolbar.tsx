@@ -25,7 +25,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import { useState, type ReactNode } from 'react';
-import { KIND_DEFS, OBJECT_KINDS, type ObjectKind } from '@/core/schema/kinds';
+import { CATEGORY_LABELS, KIND_CATEGORIES, KIND_DEFS, OBJECT_KINDS, type ObjectKind } from '@/core/schema/kinds';
 import { selectSelectedObject, useSceneStore, type TransformMode } from '@/state/scene-store';
 import { notify } from '@/state/ui-store';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -93,18 +93,18 @@ export function EditorToolbar() {
         Add
       </Button>
       <Menu anchorEl={addMenu} open={Boolean(addMenu)} onClose={() => setAddMenu(null)}>
-        <ListSubheader>Primitives</ListSubheader>
-        {OBJECT_KINDS.filter((k) => KIND_DEFS[k].category === 'primitive').map((k) => (
-          <MenuItem key={k} onClick={() => add(k)}>
-            {KIND_DEFS[k].label}
-          </MenuItem>
-        ))}
-        <ListSubheader>Furniture</ListSubheader>
-        {OBJECT_KINDS.filter((k) => KIND_DEFS[k].category === 'furniture').map((k) => (
-          <MenuItem key={k} onClick={() => add(k)}>
-            {KIND_DEFS[k].label}
-          </MenuItem>
-        ))}
+        {KIND_CATEGORIES.flatMap((category) => {
+          const kinds = OBJECT_KINDS.filter((k) => KIND_DEFS[k].category === category);
+          if (kinds.length === 0) return [];
+          return [
+            <ListSubheader key={`header-${category}`}>{CATEGORY_LABELS[category]}</ListSubheader>,
+            ...kinds.map((k) => (
+              <MenuItem key={k} onClick={() => add(k)}>
+                {KIND_DEFS[k].label}
+              </MenuItem>
+            )),
+          ];
+        })}
       </Menu>
       <ToggleButtonGroup
         size="small"

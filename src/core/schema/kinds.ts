@@ -1,4 +1,25 @@
 import type { MaterialSpec } from './material';
+import {
+  LAMP_TABLE_DEF,
+  MIRROR_RECT_DEF,
+  PICTURE_FRAMED_DEF,
+  PLANT_POT_DEF,
+  RUG_RECT_DEF,
+  TELEVISION_FLAT_DEF,
+} from './presets/accessories';
+import { DOOR_SINGLE_DEF, ROOM_CEILING_DEF, ROOM_FLOOR_DEF, ROOM_WALL_DEF, WINDOW_SINGLE_DEF } from './presets/architecture';
+import {
+  BED_PLATFORM_DEF,
+  BOOKSHELF_OPEN_DEF,
+  CABINET_BASIC_DEF,
+  COFFEE_TABLE_RECT_DEF,
+  DESK_BASIC_DEF,
+  DINING_CHAIR_BASIC_DEF,
+  DINING_TABLE_RECT_DEF,
+  FLOATING_SHELF_DEF,
+  NIGHTSTAND_BASIC_DEF,
+  SOFA_TWO_SEATER_DEF,
+} from './presets/furniture';
 import {ROOM_DEF} from './room';
 
 export const OBJECT_KINDS = [
@@ -13,11 +34,57 @@ export const OBJECT_KINDS = [
   'lamp',
   'sofa',
   'room',
+  // Phase 1 procedural room presets
+  'room_floor',
+  'room_wall',
+  'room_ceiling',
+  'door_single',
+  'window_single',
+  'dining_table_rectangular',
+  'dining_chair_basic',
+  'coffee_table_rectangular',
+  'desk_basic',
+  'sofa_two_seater',
+  'bed_platform',
+  'nightstand_basic',
+  'bookshelf_open',
+  'cabinet_basic',
+  'floating_shelf',
+  'lamp_table',
+  'picture_framed',
+  'mirror_rectangular',
+  'rug_rectangular',
+  'plant_pot',
+  'television_flat',
 ] as const;
 
 export type ObjectKind = (typeof OBJECT_KINDS)[number];
 
-export type ParamValue = number | boolean;
+export const KIND_CATEGORIES = [
+  'primitive',
+  'architecture',
+  'furniture',
+  'storage',
+  'lighting',
+  'decor',
+  'plants',
+  'electronics',
+] as const;
+
+export type KindCategory = (typeof KIND_CATEGORIES)[number];
+
+export const CATEGORY_LABELS: Record<KindCategory, string> = {
+  primitive: 'Primitives',
+  architecture: 'Architecture',
+  furniture: 'Furniture',
+  storage: 'Storage',
+  lighting: 'Lighting',
+  decor: 'Decor',
+  plants: 'Plants',
+  electronics: 'Electronics',
+};
+
+export type ParamValue = number | boolean | string;
 export type Params = Record<string, ParamValue>;
 
 export type NumberParamDef = {
@@ -39,14 +106,23 @@ export type BooleanParamDef = {
   default: boolean;
 };
 
-export type ParamDef = NumberParamDef | BooleanParamDef;
+/** One of a fixed list of style names, e.g. legStyle "square" | "tapered" | "round". */
+export type ChoiceParamDef = {
+  key: string;
+  label: string;
+  type: 'choice';
+  options: readonly [string, ...string[]];
+  default: string;
+};
+
+export type ParamDef = NumberParamDef | BooleanParamDef | ChoiceParamDef;
 
 export type PartDef = { key: string; label: string };
 
 export type KindDef = {
   kind: ObjectKind;
   label: string;
-  category: 'primitive' | 'furniture';
+  category: KindCategory;
   description: string;
   params: ParamDef[];
   parts: PartDef[];
@@ -196,7 +272,7 @@ export const KIND_DEFS: Record<ObjectKind, KindDef> = {
   shelf: {
     kind: 'shelf',
     label: 'Shelf',
-    category: 'furniture',
+    category: 'storage',
     description: 'Bookshelf: side panels, boards and optional back',
     params: [
       num('width', 'Width', 0.3, 4, 1),
@@ -277,6 +353,27 @@ export const KIND_DEFS: Record<ObjectKind, KindDef> = {
     },
   },
   room: ROOM_DEF,
+  room_floor: ROOM_FLOOR_DEF,
+  room_wall: ROOM_WALL_DEF,
+  room_ceiling: ROOM_CEILING_DEF,
+  door_single: DOOR_SINGLE_DEF,
+  window_single: WINDOW_SINGLE_DEF,
+  dining_table_rectangular: DINING_TABLE_RECT_DEF,
+  dining_chair_basic: DINING_CHAIR_BASIC_DEF,
+  coffee_table_rectangular: COFFEE_TABLE_RECT_DEF,
+  desk_basic: DESK_BASIC_DEF,
+  sofa_two_seater: SOFA_TWO_SEATER_DEF,
+  bed_platform: BED_PLATFORM_DEF,
+  nightstand_basic: NIGHTSTAND_BASIC_DEF,
+  bookshelf_open: BOOKSHELF_OPEN_DEF,
+  cabinet_basic: CABINET_BASIC_DEF,
+  floating_shelf: FLOATING_SHELF_DEF,
+  lamp_table: LAMP_TABLE_DEF,
+  picture_framed: PICTURE_FRAMED_DEF,
+  mirror_rectangular: MIRROR_RECT_DEF,
+  rug_rectangular: RUG_RECT_DEF,
+  plant_pot: PLANT_POT_DEF,
+  television_flat: TELEVISION_FLAT_DEF,
 };
 
 export function isObjectKind(value: unknown): value is ObjectKind {
@@ -307,6 +404,10 @@ export function validateParams(kind: ObjectKind, params: Params): string[] {
     const v = params[p.key];
     if (p.type === 'boolean') {
       if (typeof v !== 'boolean') errors.push(`${p.label} must be true or false.`);
+      continue;
+    }
+    if (p.type === 'choice') {
+      if (typeof v !== 'string' || !p.options.includes(v)) errors.push(`${p.label} must be one of: ${p.options.join(', ')}.`);
       continue;
     }
     if (typeof v !== 'number' || !Number.isFinite(v)) {

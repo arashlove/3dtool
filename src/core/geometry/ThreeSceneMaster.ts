@@ -1,11 +1,23 @@
 import * as THREE from 'three';
 import { KIND_DEFS, OBJECT_KINDS, type ObjectKind } from '../schema/kinds';
 import type { SceneDocument, SceneObject, TransformSpec } from '../schema/scene';
+import { buildDoorSingle, buildWindowSingle } from './builders/architecture/openings';
+import { buildRoomCeiling, buildRoomFloor, buildRoomWall } from './builders/architecture/structure';
 import type { Builder } from './builders/common';
+import { buildRugRectangular } from './builders/decor/rugs';
+import { buildMirrorRectangular, buildPictureFramed } from './builders/decor/wall-decor';
+import { buildTelevisionFlat } from './builders/electronics/displays';
 import { buildChair, buildLamp, buildShelf, buildSofa, buildTable } from './builders/furniture';
+import { buildBedPlatform } from './builders/furniture/beds';
+import { buildDiningChair, buildSofaTwoSeater } from './builders/furniture/seating';
+import { buildBookshelfOpen, buildCabinet, buildFloatingShelf, buildNightstand } from './builders/furniture/storage';
+import { buildCoffeeTable, buildDesk, buildDiningTable } from './builders/furniture/tables';
+import { buildLampTable } from './builders/lighting/lamps';
+import { buildPlantPot } from './builders/plants/pots';
 import { buildBox, buildCone, buildCylinder, buildSphere, buildTorus } from './builders/primitives';
-import { buildRoom } from './builders/room'; 
+import { buildRoom } from './builders/room';
 
+/** Explicit kind → builder registry. The Record type forces a builder for every registered kind. */
 const builders: Record<ObjectKind, Builder> = {
   box: buildBox,
   sphere: buildSphere,
@@ -18,6 +30,27 @@ const builders: Record<ObjectKind, Builder> = {
   lamp: buildLamp,
   sofa: buildSofa,
   room: buildRoom,
+  room_floor: buildRoomFloor,
+  room_wall: buildRoomWall,
+  room_ceiling: buildRoomCeiling,
+  door_single: buildDoorSingle,
+  window_single: buildWindowSingle,
+  dining_table_rectangular: buildDiningTable,
+  dining_chair_basic: buildDiningChair,
+  coffee_table_rectangular: buildCoffeeTable,
+  desk_basic: buildDesk,
+  sofa_two_seater: buildSofaTwoSeater,
+  bed_platform: buildBedPlatform,
+  nightstand_basic: buildNightstand,
+  bookshelf_open: buildBookshelfOpen,
+  cabinet_basic: buildCabinet,
+  floating_shelf: buildFloatingShelf,
+  lamp_table: buildLampTable,
+  picture_framed: buildPictureFramed,
+  mirror_rectangular: buildMirrorRectangular,
+  rug_rectangular: buildRugRectangular,
+  plant_pot: buildPlantPot,
+  television_flat: buildTelevisionFlat,
 };
 
 export type Bounds = { min: [number, number, number]; max: [number, number, number] };
