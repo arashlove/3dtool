@@ -22,8 +22,8 @@ export function safeJsonParse(text: string): JsonResult {
  * Tolerates code fences, reasoning tags and prose around the object, but only the
  * first balanced object is considered; nothing else is used.
  */
-export function extractJsonObject(raw: string): JsonResult {
-  if (raw.length > LIMITS.maxModelOutputChars) return { ok: false, error: 'Model output is too long.' };
+export function extractJsonObject(raw: string, maxChars: number = LIMITS.maxModelOutputChars): JsonResult {
+  if (raw.length > maxChars) return { ok: false, error: 'Model output is too long.' };
   const text = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```(?:json)?/gi, '');
   const start = text.indexOf('{');
   if (start < 0) return { ok: false, error: 'No JSON object found in the model output.' };

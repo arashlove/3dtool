@@ -8,7 +8,8 @@ import { applyTransform, sceneMaster } from '@/core/geometry/ThreeSceneMaster';
 import { LIMITS } from '@/core/schema/constants';
 import type { SceneObject } from '@/core/schema/scene';
 import { selectSelectedObject, useSceneStore } from '@/state/scene-store';
-import { notify } from '@/state/ui-store';
+import { notify, useUiStore } from '@/state/ui-store';
+import { DimensionGuides } from './DimensionGuides';
 import { SceneObjectView } from './SceneObjectView';
 
 /** In front of the sample room's open side, far enough out to frame all three 10 m walls. */
@@ -122,6 +123,7 @@ export default function SceneCanvas() {
   const settings = useSceneStore((s) => s.doc.settings);
   const selected = useSceneStore(selectSelectedObject);
   const select = useSceneStore((s) => s.select);
+  const measurementsVisible = useUiStore((s) => s.measurementsVisible);
   const [groups, setGroups] = useState<Record<string, THREE.Group>>({});
 
   const register = useCallback((id: string, group: THREE.Group | null) => {
@@ -196,6 +198,7 @@ export default function SceneCanvas() {
       </group>
 
       {selected && selectedGroup && selected.visible && <SelectionBox object={selectedGroup} />}
+      {selected && selectedGroup && selected.visible && measurementsVisible && <DimensionGuides object={selectedGroup} />}
       {selected && selectedGroup && selected.visible && !selected.locked && <Gizmo object={selectedGroup} spec={selected} />}
 
       <OrbitControls makeDefault enableDamping target={DEFAULT_TARGET} maxPolarAngle={Math.PI / 2 - 0.02} minDistance={0.3} maxDistance={60} />

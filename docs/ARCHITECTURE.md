@@ -10,7 +10,7 @@
 | Prompt | `src/core/prompt/` | Compact scene context (short `obj:N` aliases) and the planner prompt with few-shot examples. |
 | Scene I/O | `src/core/scene/` | JSON project import/export with versioned migration, GLB export, and the sample scene. |
 | State | `src/state/` | Zustand stores: scene (document, selection, history), AI (model selection, token, status), UI notices. |
-| AI | `src/ai/` | Model presets, the Web Worker running Transformers.js, the main-thread bridge, and the validated plan runner. |
+| AI | `src/ai/` | Model presets, the Hugging Face Inference Providers client (streaming), and the validated plan runner. |
 | UI | `src/components/` | MUI app shell, R3F canvas, inspector, object tree, toolbar, prompt panel, model settings. |
 | Persistence | `src/persistence/` | IndexedDB autosave (validated on load). |
 
@@ -40,26 +40,20 @@ GLB export calls the same builders on visible objects (`buildExportScene`) and p
 
 1. `buildCompactSceneContext` summarises the scene: the selected object with its params and parts,
    plus up to 20 objects with alias, kind, name, centre and size.
-2. `HuggingFaceWorkerPlanner` posts the chat messages to `hf-worker.ts`, a module Web Worker.
-3. The worker runs `pipeline('text-generation', model, { device: 'wasm', dtype })` with greedy
-   decoding. It streams token counts back and stops as soon as the first JSON object is closed
-   (`JsonCompletionTracker`).
+2. `HuggingFaceInferencePlanner` (`src/ai/hf-inference-planner.ts`) POSTs the chat messages from the
+   browser to `https://router.huggingface.co/v1/chat/completions`, using the visitor's token, with
+   `stream: true` and `temperature: 0`.
+3. It parses the server-sent events, reports reasoning and answer token counts, and aborts the stream as
+   soon as the first JSON object is closed (`JsonCompletionTracker`). HTTP and provider errors are turned
+   into plain messages.
 4. `requestValidatedPlan` parses the output, validates it and dry-runs it against the current store
    state. On failure it sends a single correction message, then returns an error. It never substitutes
    a canned plan.
 5. The prompt panel shows the result. Delete operations require confirmation, and "review plans before
    applying" opens an editable JSON view that is re-validated before it is applied.
 
-The optional Hugging Face token is stored only in the browser. Inside the worker, `env.fetch` is
-wrapped so that the `Authorization` header is attached only to `huggingface.co` / `hf.co` requests.
-
-## Cross-origin isolation
-
-`src/proxy.ts` sets `Cross-Origin-Opener-Policy: same-origin` and
-`Cross-Origin-Embedder-Policy: require-corp` on every response, including `_next/static`. A module
-worker whose script lacks COEP is blocked on an isolated page, so the headers cannot be limited to HTML
-pages. With isolation enabled, ONNX Runtime can use `SharedArrayBuffer` and several WASM threads. The
-worker uses half the logical cores, capped at 8.
+The Hugging Face token is stored only in the browser and sent only to `router.huggingface.co`. There
+is no server-side route or secret: the 3DTool server only serves the app.
 
 ## Extending
 

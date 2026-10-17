@@ -165,7 +165,8 @@ function Notifications() {
 
 export function StudioPage() {
   const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
+  // No noSsr: the first client render must match the server HTML; the layout switches right after hydration.
+  const compact = useMediaQuery(theme.breakpoints.down('md'));
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const hydrated = useHydrateAndAutosave();

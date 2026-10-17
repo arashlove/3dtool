@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "3dtool-dev",
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "3dtool-prod",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".next/standalone/server.js"],
+      "env": { "PORT": "3123" },
+      "port": 3123
+    }
+  ]
+}
