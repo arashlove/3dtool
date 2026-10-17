@@ -50,6 +50,8 @@ export function describePart(mesh: PartMesh): PartInfo {
     size: size.toArray().map(r3) as Vec3,
     visible: mesh.visible,
     decal_of: (mesh.userData.decalOf as string | undefined) ?? null,
+    group_id: (mesh.userData.groupId as string | undefined) ?? null,
+    group: (mesh.userData.groupLabel as string | undefined) ?? null,
   };
 }
 

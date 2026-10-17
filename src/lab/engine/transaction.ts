@@ -11,6 +11,9 @@ type MeshState = {
   material: THREE.Material | THREE.Material[];
   visible: boolean;
   label: string;
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  scale: THREE.Vector3;
 };
 
 export type HistoryEntry = {
@@ -24,6 +27,9 @@ const stateOf = (mesh: PartMesh): MeshState => ({
   material: mesh.material,
   visible: mesh.visible,
   label: mesh.userData.label as string,
+  position: mesh.position.clone(),
+  quaternion: mesh.quaternion.clone(),
+  scale: mesh.scale.clone(),
 });
 
 function applyState(mesh: PartMesh, s: MeshState) {
@@ -31,6 +37,9 @@ function applyState(mesh: PartMesh, s: MeshState) {
   mesh.material = s.material;
   mesh.visible = s.visible;
   mesh.userData.label = s.label;
+  mesh.position.copy(s.position);
+  mesh.quaternion.copy(s.quaternion);
+  mesh.scale.copy(s.scale);
 }
 
 export class Transaction {
@@ -68,6 +77,19 @@ export class Transaction {
       this.clonedMaterial.add(mesh);
     }
     return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  }
+
+  /** Records the mesh's current state before it is changed directly (e.g. its transform by a gizmo). */
+  track(mesh: PartMesh) {
+    this.touch(mesh);
+  }
+
+  /** True when any tracked mesh's transform differs from when it was tracked. */
+  get moved(): boolean {
+    for (const [mesh, s] of this.before) {
+      if (!mesh.position.equals(s.position) || !mesh.quaternion.equals(s.quaternion) || !mesh.scale.equals(s.scale)) return true;
+    }
+    return false;
   }
 
   setVisible(mesh: PartMesh, visible: boolean) {

@@ -23,6 +23,11 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -84,6 +89,12 @@ function useLabSetup() {
         s.setSelected([]);
       } else if (!mod && e.key.toLowerCase() === 'f') {
         s.requestFocus();
+      } else if (!mod && e.key.toLowerCase() === 'w') {
+        s.setTransformMode('translate');
+      } else if (!mod && e.key.toLowerCase() === 'e') {
+        s.setTransformMode('rotate');
+      } else if (!mod && e.key.toLowerCase() === 'r') {
+        s.setTransformMode('scale');
       }
     };
     window.addEventListener('keydown', onKey);
@@ -133,6 +144,13 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
   const generating = useLabStore((s) => s.generating3d);
   const [textTo3dOpen, setTextTo3dOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const importMode = useRef<'add' | 'replace'>('add');
+  const [importMenu, setImportMenu] = useState<HTMLElement | null>(null);
+  const chooseFile = (mode: 'add' | 'replace') => {
+    importMode.current = mode;
+    setImportMenu(null);
+    fileInput.current?.click();
+  };
   const store = useLabStore.getState;
 
   return (
@@ -177,12 +195,26 @@ function TopBar({ compact, onOpenLeft, onOpenRight }: { compact: boolean; onOpen
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = '';
-          if (file) void store().importFile(file);
+          if (file) void store().importFile(file, importMode.current);
         }}
       />
-      <Button size="small" startIcon={<FileUploadOutlinedIcon />} disabled={Boolean(busy)} onClick={() => fileInput.current?.click()}>
-        Open .glb
+      <Button
+        size="small"
+        startIcon={<FileUploadOutlinedIcon />}
+        disabled={Boolean(busy)}
+        onClick={(e) => (modelName ? setImportMenu(e.currentTarget) : chooseFile('replace'))}
+        aria-haspopup="menu"
+      >
+        Import .glb
       </Button>
+      <Menu anchorEl={importMenu} open={Boolean(importMenu)} onClose={() => setImportMenu(null)}>
+        <MenuItem onClick={() => chooseFile('add')}>
+          <ListItemText primary="Add to scene" secondary="Placed beside the selection (or the scene), ready to move" />
+        </MenuItem>
+        <MenuItem onClick={() => chooseFile('replace')}>
+          <ListItemText primary="Replace scene" secondary="Start over with only this model" />
+        </MenuItem>
+      </Menu>
       <Tooltip title="Generate a textured 3D model from a description or an image (TRELLIS.2 on Hugging Face)">
         <Button size="small" startIcon={<ViewInArOutlinedIcon />} disabled={Boolean(busy)} onClick={() => setTextTo3dOpen(true)}>
           {generating ? 'Generating 3D…' : 'Text to 3D'}
@@ -271,6 +303,39 @@ function RightPanel() {
   );
 }
 
+function TransformBar() {
+  const mode = useLabStore((s) => s.transformMode);
+  const count = useLabStore((s) => s.selected.length);
+  if (count === 0) return null;
+  return (
+    <Paper variant="outlined" sx={{ position: 'absolute', top: 8, left: 8, bgcolor: 'rgba(255,255,255,0.94)' }}>
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={mode}
+        onChange={(_, v) => v && useLabStore.getState().setTransformMode(v)}
+        aria-label="Gizmo mode"
+      >
+        <Tooltip title="Move (W)">
+          <ToggleButton value="translate" sx={{ px: 1.25, py: 0.4, textTransform: 'none' }}>
+            Move
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Rotate (E)">
+          <ToggleButton value="rotate" sx={{ px: 1.25, py: 0.4, textTransform: 'none' }}>
+            Rotate
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="Scale (R)">
+          <ToggleButton value="scale" sx={{ px: 1.25, py: 0.4, textTransform: 'none' }}>
+            Scale
+          </ToggleButton>
+        </Tooltip>
+      </ToggleButtonGroup>
+    </Paper>
+  );
+}
+
 function EmptyViewport() {
   const hasModel = useLabStore((s) => s.modelName !== null);
   if (hasModel) return null;
@@ -281,7 +346,7 @@ function EmptyViewport() {
           Nothing loaded
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Use <strong>From Studio</strong> to edit the objects from Shape Studio, or <strong>Open .glb</strong> to edit any glTF model.
+          Use <strong>From Studio</strong> to edit the objects from Shape Studio, or <strong>Import .glb</strong> to edit any glTF model.
         </Typography>
       </Paper>
     </Box>
@@ -323,6 +388,7 @@ export function FutureLabPage() {
         <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }} data-testid="lab-canvas">
           <LabViewport />
           <EmptyViewport />
+          <TransformBar />
         </Box>
         {compact ? (
           <Drawer anchor="right" open={rightOpen} onClose={() => setRightOpen(false)} keepMounted>

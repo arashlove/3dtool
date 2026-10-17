@@ -18,7 +18,10 @@ export const MAX_UPLOAD_MB = 100;
 
 export type LoadedModel = { root: THREE.Group; name: string; stats: { meshes: number; parts: number; triangles: number } };
 
-type Source = { mesh: THREE.Mesh; label: string };
+/** The object a part belongs to (a Studio object, or one imported file); selected and moved together. */
+export type PartGroup = { id: string; label: string };
+
+type Source = { mesh: THREE.Mesh; label: string; group: PartGroup };
 
 function partsFromSources(sources: Source[], split: boolean): { root: THREE.Group; parts: number; triangles: number } {
   const root = new THREE.Group();
@@ -38,7 +41,7 @@ function partsFromSources(sources: Source[], split: boolean): { root: THREE.Grou
   let n = 0;
   let triangles = 0;
   const nextId = () => `part_${String(n++).padStart(3, '0')}`;
-  sources.forEach(({ mesh, label }, i) => {
+  sources.forEach(({ mesh, label, group }, i) => {
     mesh.updateWorldMatrix(true, false);
     const pieces = components[i] && components[i]!.length > 1 ? components[i]! : null;
     const geometries = pieces ? pieces.map((faces) => subGeometry(mesh.geometry, faces)) : [mesh.geometry.clone()];
@@ -51,7 +54,7 @@ function partsFromSources(sources: Source[], split: boolean): { root: THREE.Grou
       part.receiveShadow = true;
       const partLabel = pieces ? `${label} ${k + 1}` : label;
       part.name = partLabel;
-      part.userData = { partId: nextId(), label: partLabel };
+      part.userData = { partId: nextId(), label: partLabel, groupId: group.id, groupLabel: group.label };
       triangles += geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
       root.add(part);
     });
@@ -59,12 +62,12 @@ function partsFromSources(sources: Source[], split: boolean): { root: THREE.Grou
   return { root, parts: n, triangles: Math.round(triangles) };
 }
 
-function collectSources(scene: THREE.Object3D, labelFor: (mesh: THREE.Mesh) => string): Source[] {
+function collectSources(scene: THREE.Object3D, describe: (mesh: THREE.Mesh) => { label: string; group: PartGroup }): Source[] {
   scene.updateMatrixWorld(true);
   const sources: Source[] = [];
   scene.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh && mesh.visible && mesh.geometry?.attributes.position) sources.push({ mesh, label: labelFor(mesh) });
+    if (mesh.isMesh && mesh.visible && mesh.geometry?.attributes.position) sources.push({ mesh, ...describe(mesh) });
   });
   return sources;
 }
@@ -75,7 +78,9 @@ export function loadFromStudio(doc: SceneDocument, split: boolean): LoadedModel 
   const sources = collectSources(scene, (mesh) => {
     const object = doc.objects.find((o) => o.id === mesh.userData.objectId);
     const part = cleanLabel(mesh.name);
-    return object ? `${object.name} ${part}` : part;
+    return object
+      ? { label: `${object.name} ${part}`, group: { id: `obj_${object.id}`, label: object.name } }
+      : { label: part, group: { id: 'obj_other', label: 'Other' } };
   });
   try {
     const { root, parts, triangles } = partsFromSources(sources, split);
@@ -100,7 +105,8 @@ export async function loadGlbBuffer(buffer: ArrayBuffer, name: string, split: bo
   const magic = new TextDecoder().decode(new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength)));
   if (magic !== 'glTF' && !allowJson) throw new Error('That is not a binary glTF (.glb) file.');
   const gltf = await loader().parseAsync(buffer, '');
-  const sources = collectSources(gltf.scene, (mesh) => cleanLabel(mesh.name || mesh.parent?.name || 'part'));
+  const group = { id: 'glb_1', label: name };
+  const sources = collectSources(gltf.scene, (mesh) => ({ label: cleanLabel(mesh.name || mesh.parent?.name || 'part'), group }));
   if (sources.length === 0) throw new Error('The file contains no meshes.');
   const { root, parts, triangles } = partsFromSources(sources, split);
   return { root, name, stats: { meshes: sources.length, parts, triangles } };
@@ -115,12 +121,20 @@ export async function loadGlbFile(file: File, split: boolean): Promise<LoadedMod
  * Prepares a loaded model for adding to an existing scene: scales it to `height`, stands it on the
  * ground to the right of `occupied`, and renumbers its part ids after the existing ones.
  */
-export function placeBeside(loaded: LoadedModel, existingIds: Iterable<string>, occupied: THREE.Box3, height: number): PartMesh[] {
+export function placeBeside(
+  loaded: LoadedModel,
+  existing: Iterable<THREE.Object3D>,
+  occupied: THREE.Box3,
+  height: number | null,
+): PartMesh[] {
   const parts = [...loaded.root.children] as PartMesh[];
   loaded.root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(loaded.root, true);
   const size = box.getSize(new THREE.Vector3());
-  const scale = height / Math.max(size.y, 1e-6);
+  const largest = Math.max(size.x, size.y, size.z, 1e-6);
+  // Keep a file's own size (glTF units are metres) unless it is implausible for a scene object.
+  const scale = height !== null ? height / Math.max(size.y, 1e-6) : largest > 20 || largest < 0.02 ? 1 / largest : 1;
+  height = size.y * scale;
   const gap = Math.max(0.15, height * 0.2);
   const targetMinX = occupied.isEmpty() ? -(size.x * scale) / 2 : occupied.max.x + gap;
   const targetCenterZ = occupied.isEmpty() ? 0 : (occupied.min.z + occupied.max.z) / 2;
@@ -129,14 +143,20 @@ export function placeBeside(loaded: LoadedModel, existingIds: Iterable<string>, 
     .multiply(new THREE.Matrix4().makeScale(scale, scale, scale))
     .multiply(new THREE.Matrix4().makeTranslation(-box.min.x, -box.min.y, -(box.min.z + box.max.z) / 2));
   let next = 0;
-  for (const id of existingIds) {
-    const n = /^part_(\d+)$/.exec(id);
+  let glb = 0;
+  for (const o of existing) {
+    const n = /^part_(\d+)/.exec(o.userData.partId as string);
     if (n) next = Math.max(next, Number(n[1]) + 1);
+    const g = /^glb_(\d+)$/.exec((o.userData.groupId as string) ?? '');
+    if (g) glb = Math.max(glb, Number(g[1]));
   }
+  const groupId = `glb_${glb + 1}`;
   for (const part of parts) {
     part.applyMatrix4(m);
     part.userData.partId = `part_${String(next++).padStart(3, '0')}`;
     part.userData.label = `${loaded.name} ${part.userData.label as string}`.slice(0, 80);
+    part.userData.groupId = groupId;
+    part.userData.groupLabel = loaded.name;
     part.removeFromParent();
   }
   return parts;

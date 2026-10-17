@@ -1,6 +1,8 @@
 'use client';
 
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -98,6 +100,63 @@ function PartRow({ part, selected, targeted }: { part: PartInfo; selected: boole
   );
 }
 
+type Group = { id: string; label: string; parts: PartInfo[] };
+
+/** Groups parts by their object, keeping the scene order of first appearance. */
+function groupParts(parts: PartInfo[]): Group[] {
+  const groups = new Map<string, Group>();
+  for (const p of parts) {
+    const id = p.group_id ?? `part:${p.id}`;
+    let g = groups.get(id);
+    if (!g) {
+      g = { id, label: p.group ?? p.label, parts: [] };
+      groups.set(id, g);
+    }
+    g.parts.push(p);
+  }
+  return [...groups.values()];
+}
+
+function GroupHeader({ group, open, onToggle, selected }: { group: Group; open: boolean; onToggle: () => void; selected: 'all' | 'some' | 'none' }) {
+  const selectGroup = useLabStore((s) => s.selectGroup);
+  return (
+    <Box
+      onClick={(e) => selectGroup(group.id, e.shiftKey || e.ctrlKey || e.metaKey)}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.5,
+        px: 0.5,
+        py: 0.25,
+        mt: 0.5,
+        borderRadius: 1,
+        cursor: 'pointer',
+        bgcolor: selected === 'all' ? 'action.selected' : 'transparent',
+        '&:hover': { bgcolor: selected === 'all' ? 'action.selected' : 'action.hover' },
+      }}
+      title="Click to select the whole object, Shift+click to add it"
+    >
+      <IconButton
+        size="small"
+        aria-label={open ? `Collapse ${group.label}` : `Expand ${group.label}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        sx={{ p: 0.25 }}
+      >
+        {open ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+      </IconButton>
+      <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: 650 }}>
+        {group.label}
+      </Typography>
+      <Typography variant="caption" color={selected === 'some' ? 'primary' : 'text.secondary'}>
+        {group.parts.length} part{group.parts.length === 1 ? '' : 's'}
+      </Typography>
+    </Box>
+  );
+}
+
 export function PartsPanel() {
   const parts = useLabStore((s) => s.parts);
   const selected = useLabStore((s) => s.selected);
@@ -107,6 +166,7 @@ export function PartsPanel() {
   const textureSegments = useLabStore((s) => s.textureSegments);
   const store = useLabStore.getState;
   const [filter, setFilter] = useState('');
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const shown = filter.trim() ? parts.filter((p) => p.label.toLowerCase().includes(filter.trim().toLowerCase()) || p.id.includes(filter.trim())) : parts;
   const selectedSet = new Set(selected);
@@ -174,9 +234,39 @@ export function PartsPanel() {
         </Stack>
       </Box>
       <Box role="listbox" aria-multiselectable aria-label="Parts" sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 0.75 }}>
-        {shown.map((p) => (
-          <PartRow key={p.id} part={p} selected={selectedSet.has(p.id)} targeted={previewSet.has(p.id)} />
-        ))}
+        {groupParts(shown).map((g) => {
+          // Parts without an object (older scenes) are listed on their own.
+          if (g.id.startsWith('part:')) {
+            const p = g.parts[0];
+            return <PartRow key={p.id} part={p} selected={selectedSet.has(p.id)} targeted={previewSet.has(p.id)} />;
+          }
+          const count = g.parts.filter((p) => selectedSet.has(p.id)).length;
+          const open = Boolean(filter.trim()) || !collapsed.has(g.id);
+          return (
+            <Box key={g.id}>
+              <GroupHeader
+                group={g}
+                open={open}
+                selected={count === 0 ? 'none' : count === g.parts.length ? 'all' : 'some'}
+                onToggle={() =>
+                  setCollapsed((c) => {
+                    const next = new Set(c);
+                    if (next.has(g.id)) next.delete(g.id);
+                    else next.add(g.id);
+                    return next;
+                  })
+                }
+              />
+              {open && (
+                <Box sx={{ pl: 1.5 }}>
+                  {g.parts.map((p) => (
+                    <PartRow key={p.id} part={p} selected={selectedSet.has(p.id)} targeted={previewSet.has(p.id)} />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          );
+        })}
         {parts.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
             Load the Shape Studio scene or open a .glb file to list its parts.
@@ -184,7 +274,8 @@ export function PartsPanel() {
         )}
       </Box>
       <Typography variant="caption" color="text.secondary" sx={{ p: 1, borderTop: 1, borderColor: 'divider' }}>
-        Click to select, Shift+click to add, double-click to rename.
+        Click an object heading (or the object in the view) to select it whole; click a part for just that part. Shift adds;
+        double-click renames.
       </Typography>
     </Stack>
   );

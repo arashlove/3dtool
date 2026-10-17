@@ -1,13 +1,16 @@
 'use client';
 
-import { Grid, OrbitControls } from '@react-three/drei';
+import { Grid, OrbitControls, TransformControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { boundsOf, collectParts } from '@/lab/engine/parts';
+import { boundsOf, collectParts, type PartMesh } from '@/lab/engine/parts';
 import { getLabRoot, registerViewport, useLabStore } from '@/lab/store';
 
 const noRaycast = () => null;
+
+/** Time of the last gizmo release; the click that ends a drag must not clear the selection. */
+let lastGizmoRelease = 0;
 type OrbitControlsLike = { target: THREE.Vector3; update: () => void };
 
 /** Bounding box outline for a selected (blue) or AI-targeted (orange) part. */
@@ -53,6 +56,76 @@ function Highlights() {
   );
 }
 
+/**
+ * Move/rotate/scale gizmo for the selection. It drives a pivot at the selection's centre and applies
+ * the pivot's change to every selected part, so a whole imported model moves as one.
+ */
+function SelectionGizmo() {
+  const version = useLabStore((s) => s.version);
+  const selected = useLabStore((s) => s.selected);
+  const mode = useLabStore((s) => s.transformMode);
+  const busy = useLabStore((s) => s.busy);
+  const pivot = useMemo(() => new THREE.Object3D(), []);
+  const drag = useRef<{ pivot: THREE.Matrix4; meshes: Array<[PartMesh, THREE.Matrix4]> } | null>(null);
+
+  const root = getLabRoot();
+  const parts = root ? collectParts(root) : null;
+  const meshes = parts ? selected.map((id) => parts.get(id)).filter((m): m is PartMesh => Boolean(m?.visible)) : [];
+  const key = `${version}:${selected.join(',')}`;
+
+  useEffect(() => {
+    if (drag.current) return;
+    const box = boundsOf(meshes);
+    if (box.isEmpty()) return;
+    box.getCenter(pivot.position);
+    pivot.quaternion.identity();
+    pivot.scale.set(1, 1, 1);
+    pivot.updateMatrixWorld();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` covers selection and scene changes
+  }, [key, pivot]);
+
+  if (meshes.length === 0 || busy) return null;
+
+  const apply = () => {
+    const d = drag.current;
+    if (!d) return;
+    pivot.updateMatrixWorld();
+    const delta = pivot.matrixWorld.clone().multiply(d.pivot.clone().invert());
+    for (const [mesh, startWorld] of d.meshes) {
+      const parentInverse = mesh.parent ? mesh.parent.matrixWorld.clone().invert() : new THREE.Matrix4();
+      parentInverse.multiply(delta).multiply(startWorld).decompose(mesh.position, mesh.quaternion, mesh.scale);
+    }
+  };
+
+  return (
+    <>
+      <primitive object={pivot} />
+      <TransformControls
+        object={pivot}
+        mode={mode}
+        size={0.8}
+        onMouseDown={() => {
+          useLabStore.getState().beginTransform();
+          pivot.updateMatrixWorld();
+          drag.current = {
+            pivot: pivot.matrixWorld.clone(),
+            meshes: meshes.map((m) => {
+              m.updateWorldMatrix(true, false);
+              return [m, m.matrixWorld.clone()];
+            }),
+          };
+        }}
+        onObjectChange={apply}
+        onMouseUp={() => {
+          lastGizmoRelease = performance.now();
+          drag.current = null;
+          useLabStore.getState().endTransform();
+        }}
+      />
+    </>
+  );
+}
+
 function ViewportBridge() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
@@ -93,14 +166,14 @@ function ViewportBridge() {
 function Model() {
   const modelName = useLabStore((s) => s.modelName);
   const stats = useLabStore((s) => s.stats);
-  const select = useLabStore((s) => s.select);
+  const pick = useLabStore((s) => s.pick);
   const root = getLabRoot();
   if (!root) return null;
   const onClick = (event: ThreeEvent<MouseEvent>) => {
-    if (event.delta > 4) return;
+    if (event.delta > 4 || performance.now() - lastGizmoRelease < 300) return;
     event.stopPropagation();
     const id = event.object.userData.partId as string | undefined;
-    if (id) select(id, event.shiftKey || event.ctrlKey || event.metaKey);
+    if (id) pick(id, event.shiftKey || event.ctrlKey || event.metaKey);
   };
   return <primitive key={`${modelName}:${stats?.parts}`} object={root} onClick={onClick} />;
 }
@@ -115,7 +188,7 @@ export default function LabViewport() {
       camera={{ position: [3, 2.4, 3.6], fov: 45, near: 0.01, far: 200 }}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
       onPointerMissed={(event) => {
-        if (event.type === 'click') setSelected([]);
+        if (event.type === 'click' && performance.now() - lastGizmoRelease > 300) setSelected([]);
       }}
       style={{ touchAction: 'none' }}
       aria-label="Future Lab 3D view"
@@ -140,6 +213,7 @@ export default function LabViewport() {
       />
       {hasModel && <Model />}
       <Highlights />
+      <SelectionGizmo />
       <OrbitControls makeDefault enableDamping />
       <ViewportBridge />
     </Canvas>
