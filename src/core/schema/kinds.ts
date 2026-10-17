@@ -1,4 +1,5 @@
 import type { MaterialSpec } from './material';
+import {ROOM_DEF} from './room';
 
 export const OBJECT_KINDS = [
   'box',
@@ -11,6 +12,7 @@ export const OBJECT_KINDS = [
   'shelf',
   'lamp',
   'sofa',
+  'room',
 ] as const;
 
 export type ObjectKind = (typeof OBJECT_KINDS)[number];
@@ -274,6 +276,7 @@ export const KIND_DEFS: Record<ObjectKind, KindDef> = {
       return errors;
     },
   },
+  room: ROOM_DEF,
 };
 
 export function isObjectKind(value: unknown): value is ObjectKind {

@@ -4,6 +4,7 @@ import type { SceneDocument, SceneObject, TransformSpec } from '../schema/scene'
 import type { Builder } from './builders/common';
 import { buildChair, buildLamp, buildShelf, buildSofa, buildTable } from './builders/furniture';
 import { buildBox, buildCone, buildCylinder, buildSphere, buildTorus } from './builders/primitives';
+import { buildRoom } from './builders/room'; 
 
 const builders: Record<ObjectKind, Builder> = {
   box: buildBox,
@@ -16,6 +17,7 @@ const builders: Record<ObjectKind, Builder> = {
   shelf: buildShelf,
   lamp: buildLamp,
   sofa: buildSofa,
+  room: buildRoom,
 };
 
 export type Bounds = { min: [number, number, number]; max: [number, number, number] };
