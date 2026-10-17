@@ -2,11 +2,22 @@ import { expect, test } from '@playwright/test';
 
 // Smoke tests cover navigation and manual editing only; they never download a model.
 
-test('root redirects to the studio and the page is cross-origin isolated', async ({ page }) => {
+test('root redirects to the studio', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/studio$/);
   await expect(page.getByRole('tab', { name: 'Shape Studio' })).toHaveAttribute('aria-selected', 'true');
-  expect(await page.evaluate(() => self.crossOriginIsolated)).toBe(true);
+});
+
+test('generating without a token asks for one and never calls Hugging Face', async ({ page }) => {
+  const hfRequests: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('huggingface.co')) hfRequests.push(r.url());
+  });
+  await page.goto('/studio');
+  await page.getByRole('textbox', { name: 'Describe what to build or change' }).fill('Create a red chair');
+  await page.getByRole('button', { name: 'Generate' }).click();
+  await expect(page.getByRole('dialog', { name: 'AI model settings' })).toBeVisible();
+  expect(hfRequests).toEqual([]);
 });
 
 test('future lab is a placeholder with no functionality', async ({ page }) => {

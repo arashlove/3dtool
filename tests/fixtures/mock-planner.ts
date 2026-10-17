@@ -11,8 +11,6 @@ export class MockPlanner implements TextPlanner {
 
   constructor(private outputs: string[]) {}
 
-  async load() {}
-
   async generatePlan(input: Parameters<TextPlanner['generatePlan']>[0]) {
     this.calls.push({ userText: input.userText, correction: input.correction });
     const next = this.outputs.shift();

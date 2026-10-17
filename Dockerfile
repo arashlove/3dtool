@@ -16,7 +16,6 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=3000
-# Model weights are downloaded by each visitor's browser from Hugging Face, never baked into the image.
 COPY --from=build --chown=node:node /app/.next/standalone ./
 USER node
 EXPOSE 3000
