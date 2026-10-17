@@ -123,3 +123,10 @@ export type TextureSegmentResult = {
   face_labels: Record<string, Int16Array>;
   node_faces: Record<string, number>;
 };
+
+/** Images (snapshots, references) are downscaled in the browser before upload. */
+export const IMAGE_LIMITS = {
+  maxSidePx: 1024,
+  /** Length of the base64 data URL accepted by the server. */
+  maxDataUrlChars: 4_000_000,
+} as const;

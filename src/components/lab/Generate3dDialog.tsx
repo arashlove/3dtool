@@ -21,7 +21,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
-import { ACCEPTED_IMAGE_TYPES, loadReferenceImage } from '@/components/studio/reference-image';
+import { ACCEPTED_IMAGE_TYPES, loadReferenceImage } from '@/lab/reference-image';
 import { useLabStore, type Generate3dOptions } from '@/lab/store';
 import { generateConceptImage } from '@/lab/textures';
 

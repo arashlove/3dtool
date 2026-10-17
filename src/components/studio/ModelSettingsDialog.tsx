@@ -12,35 +12,26 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Link from '@mui/material/Link';
-import MenuItem from '@mui/material/MenuItem';
 import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
-import {
-  DEFAULT_HOSTED_MODEL_ID,
-  DEFAULT_PRESET_ID,
-  MODEL_DTYPES,
-  MODEL_PRESETS,
-  resolveModel,
-  type ModelDtype,
-  type ModelSelection,
-} from '@/ai/model-config';
+import { useState } from 'react';
+import { DEFAULT_PRESET_ID, MODEL_PRESETS, resolveModel, type ModelSelection } from '@/ai/model-config';
 import { useAiStore } from '@/state/ai-store';
+
+const TOKEN_SETTINGS_URL = 'https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained';
 
 function StrengthBars({ value }: { value: number }) {
   return (
-    <Stack direction="row" spacing={0.4} aria-label={`Strength ${value} of 4`} sx={{ alignItems: 'flex-end' }}>
-      {[1, 2, 3, 4].map((i) => (
+    <Stack direction="row" spacing={0.4} aria-label={`Strength ${value} of 3`} sx={{ alignItems: 'flex-end' }}>
+      {[1, 2, 3].map((i) => (
         <Box key={i} sx={{ width: 5, height: 4 + i * 3, borderRadius: 0.5, bgcolor: i <= value ? 'primary.main' : 'action.disabledBackground' }} />
       ))}
     </Stack>
   );
 }
-
-const formatSize = (mb: number) => (mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`);
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -55,36 +46,19 @@ export function ModelSettingsDialog({ open, onClose }: Props) {
 
 function ModelSettingsForm({ onClose }: { onClose: () => void }) {
   const store = useAiStore();
-  const [choice, setChoice] = useState<string>(
-    store.selection.kind === 'preset' ? store.selection.presetId : store.selection.kind,
-  );
-  const [hostedId, setHostedId] = useState(store.selection.kind === 'hosted' ? store.selection.modelId : DEFAULT_HOSTED_MODEL_ID);
-  const [serverToken, setServerToken] = useState<'checking' | 'set' | 'missing' | 'unknown'>('checking');
+  const [choice, setChoice] = useState<string>(store.selection.kind === 'preset' ? store.selection.presetId : 'custom');
   const [customId, setCustomId] = useState(store.selection.kind === 'custom' ? store.selection.modelId : '');
-  const [customDtype, setCustomDtype] = useState<ModelDtype>(store.selection.kind === 'custom' ? store.selection.dtype : 'q8');
   const [token, setToken] = useState(store.token ?? '');
   const [remember, setRemember] = useState(store.rememberToken);
   const [review, setReview] = useState(store.reviewBeforeApply);
 
-  useEffect(() => {
-    let active = true;
-    fetch('/api/plan', { cache: 'no-store' })
-      .then((r) => (r.ok ? (r.json() as Promise<{ configured: boolean }>) : Promise.reject(new Error(String(r.status)))))
-      .then((s) => active && setServerToken(s.configured ? 'set' : 'missing'))
-      .catch(() => active && setServerToken('unknown'));
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const selection: ModelSelection =
-    choice === 'hosted'
-      ? { kind: 'hosted', modelId: hostedId }
-      : choice === 'custom'
-        ? { kind: 'custom', modelId: customId, dtype: customDtype }
-        : { kind: 'preset', presetId: MODEL_PRESETS.find((p) => p.id === choice)?.id ?? DEFAULT_PRESET_ID };
+    choice === 'custom'
+      ? { kind: 'custom', modelId: customId }
+      : { kind: 'preset', presetId: MODEL_PRESETS.find((p) => p.id === choice)?.id ?? DEFAULT_PRESET_ID };
   const resolved = resolveModel(selection);
   const invalid = 'error' in resolved ? resolved.error : null;
+  const tokenLooksWrong = token.trim() !== '' && !token.trim().startsWith('hf_');
 
   const save = () => {
     if (invalid) return;
@@ -98,76 +72,46 @@ function ModelSettingsForm({ onClose }: { onClose: () => void }) {
     <>
       <DialogTitle>AI model settings</DialogTitle>
       <DialogContent dividers>
-        <Stack spacing={1} role="radiogroup" aria-label="Model">
-          <Box
-            onClick={() => setChoice('hosted')}
-            sx={{
-              p: 1.25,
-              border: 1,
-              borderRadius: 1,
-              cursor: 'pointer',
-              borderColor: choice === 'hosted' ? 'primary.main' : 'divider',
-              bgcolor: choice === 'hosted' ? 'action.hover' : 'transparent',
-            }}
-          >
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-              <Radio checked={choice === 'hosted'} value="hosted" size="small" sx={{ p: 0.5 }} slotProps={{ input: { 'aria-label': 'Hosted vision model' } }} />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 650 }}>Vision model · Hugging Face Inference</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Recommended. Runs on Hugging Face&apos;s servers, reads reference images and follows the JSON format far more
-                  reliably than the on-device models. Uses the server&apos;s Hugging Face token and credits.
-                </Typography>
-              </Box>
-            </Stack>
-            {choice === 'hosted' && (
-              <Stack spacing={1.5} sx={{ mt: 1.5, pl: 5 }}>
-                <TextField
-                  label="Model id"
-                  placeholder={DEFAULT_HOSTED_MODEL_ID}
-                  value={hostedId}
-                  onChange={(e) => setHostedId(e.target.value)}
-                  error={Boolean(invalid)}
-                  helperText={
-                    invalid ?? (
-                      <>
-                        Any image-text-to-text model served by an{' '}
-                        <Link
-                          href="https://huggingface.co/models?pipeline_tag=image-text-to-text&inference_provider=all"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          inference provider
-                        </Link>
-                        . Append :fastest, :cheapest or :provider-name to pick a provider.
-                      </>
-                    )
-                  }
-                  fullWidth
-                  onClick={(e) => e.stopPropagation()}
-                  slotProps={{ htmlInput: { maxLength: 240, spellCheck: false } }}
-                />
-                <Alert severity={serverToken === 'set' ? 'success' : serverToken === 'missing' ? 'warning' : 'info'}>
-                  {serverToken === 'set' && 'The server has a Hugging Face token (HF_TOKEN) configured.'}
-                  {serverToken === 'missing' && (
-                    <>
-                      The server has no Hugging Face token. Add <code>HF_TOKEN=hf_…</code> to <code>.env.local</code> in the
-                      project root (or to the deployment&apos;s environment) and restart the server.
-                    </>
-                  )}
-                  {serverToken === 'checking' && 'Checking the server for a Hugging Face token…'}
-                  {serverToken === 'unknown' && 'Could not reach the server to check for a Hugging Face token.'}
-                </Alert>
-              </Stack>
-            )}
-          </Box>
+        <Typography variant="subtitle2" gutterBottom>
+          Hugging Face access token
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Prompts run on GPUs through{' '}
+          <Link href="https://huggingface.co/docs/inference-providers" target="_blank" rel="noopener noreferrer">
+            Hugging Face Inference Providers
+          </Link>
+          , billed to your own account (PRO accounts include monthly credits). Create a fine-grained token with the
+          &quot;Make calls to Inference Providers&quot; permission:{' '}
+          <Link href={TOKEN_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
+            create token <OpenInNewIcon sx={{ fontSize: 11, verticalAlign: 'middle' }} />
+          </Link>
+        </Typography>
+        <TextField
+          label="hf_… token"
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          error={tokenLooksWrong}
+          helperText={tokenLooksWrong ? 'Hugging Face tokens start with "hf_".' : ' '}
+          fullWidth
+          autoComplete="off"
+          slotProps={{ htmlInput: { maxLength: 200, spellCheck: false } }}
+        />
+        <FormControlLabel
+          control={<Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} size="small" />}
+          label={<Typography variant="body2">Remember on this device (otherwise kept for this tab session only)</Typography>}
+        />
+        <Alert severity="info" sx={{ mt: 1 }}>
+          The token stays in this browser and is sent only to router.huggingface.co. It is never sent to the 3DTool server.
+          Your prompt and a short summary of the scene are sent to Hugging Face and the inference provider it selects.
+        </Alert>
 
-          <Typography variant="body2" color="text.secondary" sx={{ pt: 1 }}>
-            On-device models (text only) run on this device&apos;s CPU (WebAssembly) inside your browser. Larger models follow
-            instructions more reliably but download more data, use more memory, and respond more slowly.
-          </Typography>
+        <Divider sx={{ my: 2.5 }} />
 
+        <Typography variant="subtitle2" gutterBottom>
+          Model strength
+        </Typography>
+        <Stack spacing={1} role="radiogroup" aria-label="Model strength">
           {MODEL_PRESETS.map((p) => (
             <Box
               key={p.id}
@@ -188,15 +132,12 @@ function ModelSettingsForm({ onClose }: { onClose: () => void }) {
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <Typography sx={{ fontWeight: 650 }}>{p.label}</Typography>
                   <StrengthBars value={p.strength} />
-                  <Typography variant="caption" color="text.secondary">
-                    ~{formatSize(p.approxDownloadMB)} download
-                  </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
                   {p.description}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all' }}>
-                  {p.modelId} · {p.dtype} · {p.license} ·{' '}
+                  {p.modelId} · {p.license} ·{' '}
                   <Link href={p.modelCardUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                     model card <OpenInNewIcon sx={{ fontSize: 11, verticalAlign: 'middle' }} />
                   </Link>
@@ -218,66 +159,34 @@ function ModelSettingsForm({ onClose }: { onClose: () => void }) {
           >
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
               <Radio checked={choice === 'custom'} value="custom" size="small" sx={{ p: 0.5 }} slotProps={{ input: { 'aria-label': 'Custom model' } }} />
-              <Typography sx={{ fontWeight: 650 }}>Custom Hugging Face model</Typography>
+              <Typography sx={{ fontWeight: 650 }}>Custom model</Typography>
             </Stack>
             {choice === 'custom' && (
               <Stack spacing={1.5} sx={{ mt: 1.5, pl: 5 }}>
                 <TextField
                   label="Model id"
-                  placeholder="owner/model-name"
+                  placeholder="owner/model-name or owner/model-name:provider"
                   value={customId}
                   onChange={(e) => setCustomId(e.target.value)}
                   error={Boolean(invalid)}
-                  helperText={invalid ?? 'Must be a Transformers.js-compatible repo with ONNX weights for text generation.'}
+                  helperText={
+                    invalid ?? 'Any chat model served by Hugging Face Inference Providers. Add ":fastest" or ":cheapest" to steer routing.'
+                  }
                   fullWidth
-                  slotProps={{ htmlInput: { maxLength: 193, spellCheck: false } }}
+                  slotProps={{ htmlInput: { maxLength: 240, spellCheck: false } }}
                 />
-                <TextField select label="Quantization (dtype)" value={customDtype} onChange={(e) => setCustomDtype(e.target.value as ModelDtype)} sx={{ maxWidth: 220 }}>
-                  {MODEL_DTYPES.map((d) => (
-                    <MenuItem key={d} value={d}>
-                      {d}
-                    </MenuItem>
-                  ))}
-                </TextField>
                 <Typography variant="caption" color="text.secondary">
-                  Custom models are not tested with this app. Their output still goes through the same validator, so a
-                  weaker model fails safely rather than changing the scene incorrectly.
+                  Custom models are not tested with this app. Their output still goes through the same validator, so a weaker
+                  model fails safely rather than changing the scene incorrectly. Browse available models at{' '}
+                  <Link href="https://huggingface.co/models?inference_provider=all&pipeline_tag=text-generation" target="_blank" rel="noopener noreferrer">
+                    huggingface.co/models
+                  </Link>
+                  .
                 </Typography>
               </Stack>
             )}
           </Box>
         </Stack>
-
-        {choice !== 'hosted' && (
-          <>
-            <Divider sx={{ my: 2.5 }} />
-
-            <Typography variant="subtitle2" gutterBottom>
-              Hugging Face access token for on-device models (optional)
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Not needed for any built-in preset: they are public. A token only unlocks gated or private repositories you have
-              access to (for a custom model) and may raise download rate limits. It does not make a model stronger.
-            </Typography>
-            <TextField
-              label="hf_… token"
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              fullWidth
-              autoComplete="off"
-              slotProps={{ htmlInput: { maxLength: 200, spellCheck: false } }}
-            />
-            <FormControlLabel
-              control={<Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} size="small" />}
-              label={<Typography variant="body2">Remember on this device (otherwise kept for this tab session only)</Typography>}
-            />
-            <Alert severity="info" sx={{ mt: 1 }}>
-              The token stays in this browser and is sent only to huggingface.co when downloading model files. It is never sent
-              to the 3DTool server. Use a fine-grained, read-only token.
-            </Alert>
-          </>
-        )}
 
         <Divider sx={{ my: 2.5 }} />
 

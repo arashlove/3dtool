@@ -1,7 +1,7 @@
 import { parsePlanText } from '@/core/commands/parser';
 import type { CompactSceneContext } from '@/core/prompt/scene-context';
 import type { ScenePlan } from '@/core/schema/plan';
-import type { TextPlanner } from './planner.interface';
+import type { GenerationProgress, TextPlanner } from './planner.interface';
 
 export type PlanRunResult =
   | { ok: true; plan: ScenePlan; rawOutputs: string[] }
@@ -19,8 +19,7 @@ export async function requestValidatedPlan(
   userText: string,
   sceneContext: CompactSceneContext,
   dryRun: PlanDryRun,
-  onProgress?: (info: { attempt: 1 | 2; tokens: number }) => void,
-  image?: string,
+  onProgress?: (info: GenerationProgress & { attempt: 1 | 2 }) => void,
 ): Promise<PlanRunResult> {
   const rawOutputs: string[] = [];
 
@@ -32,19 +31,16 @@ export async function requestValidatedPlan(
     return problem ? { ok: false, error: problem } : { ok: true, plan: parsed.plan };
   };
 
-  onProgress?.({ attempt: 1, tokens: 0 });
-  const first = await planner.generatePlan({ userText, sceneContext, image, onToken: (tokens) => onProgress?.({ attempt: 1, tokens }) });
+  const first = await planner.generatePlan({ userText, sceneContext, onProgress: (p) => onProgress?.({ ...p, attempt: 1 }) });
   rawOutputs.push(first);
   const firstResult = evaluate(first);
   if (firstResult.ok) return { ok: true, plan: firstResult.plan, rawOutputs };
 
-  onProgress?.({ attempt: 2, tokens: 0 });
   const second = await planner.generatePlan({
     userText,
     sceneContext,
-    image,
     correction: { previousOutput: first, error: firstResult.error },
-    onToken: (tokens) => onProgress?.({ attempt: 2, tokens }),
+    onProgress: (p) => onProgress?.({ ...p, attempt: 2 }),
   });
   rawOutputs.push(second);
   const secondResult = evaluate(second);

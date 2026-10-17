@@ -1,28 +1,21 @@
 x-zenith:
   catalog:
     name: 3DTool — Shape Studio
-    description: Describe furniture and simple shapes in plain English; a small Hugging Face model running on your own CPU (WebAssembly) plans the edits and native Three.js builders create editable 3D geometry. Export to GLB.
+    description: Describe furniture and simple shapes in plain English; a Hugging Face model (via Inference Providers, using your own token) plans the edits and native Three.js builders create editable 3D geometry. Export to GLB.
     authors: [arashlove]
     source: https://github.com/arashlove/3dtool
     license: MIT
-    tags: [nextjs, threejs, 3d, ai, transformers-js, webassembly]
+    tags: [nextjs, threejs, 3d, ai, huggingface]
   expose:
     - { service: web, port: 3000, web: true }
   env:
     HF_TOKEN:
       services: [web]
       input:
-        label: Hugging Face token
-        description: Read token with "Make calls to Inference Providers" permission. Used server-side by the hosted vision model.
+        label: Hugging Face token (Future Lab)
+        description: Optional. Read token with "Make calls to Inference Providers" permission, used server-side by the Future Lab AI features. Shape Studio uses each visitor's own token instead.
         required: false
         secret: true
-    HF_VISION_MODEL:
-      services: [web]
-      input:
-        label: Hosted vision model
-        description: Default Hugging Face image-text-to-text model id.
-        default: Qwen/Qwen3-VL-30B-A3B-Instruct
-        required: false
 
 services:
   web:

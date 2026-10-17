@@ -1,4 +1,4 @@
-import { IMAGE_LIMITS } from '@/ai/model-config';
+import { IMAGE_LIMITS } from './types';
 
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 

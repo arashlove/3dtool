@@ -1,8 +1,6 @@
 'use client';
 
-import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ReplayIcon from '@mui/icons-material/Replay';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
@@ -13,7 +11,6 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -21,8 +18,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef, useState } from 'react';
-import { modelKey } from '@/ai/model-config';
+import { useEffect, useState } from 'react';
 import { requiresConfirmation } from '@/core/commands/dispatcher';
 import { parsePlanText } from '@/core/commands/parser';
 import { LIMITS } from '@/core/schema/constants';
@@ -33,7 +29,6 @@ import { useSceneStore } from '@/state/scene-store';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ModelSettingsDialog } from './ModelSettingsDialog';
 import { ModelStatusCard } from './ModelStatusCard';
-import { ACCEPTED_IMAGE_TYPES, loadReferenceImage } from './reference-image';
 import { useAiPlanner } from './useAiPlanner';
 
 const SAMPLE_PROMPTS = [
@@ -45,27 +40,9 @@ const SAMPLE_PROMPTS = [
 ];
 
 const SUPPORTED_TEXT = `Supported: ${OBJECT_KINDS.map((k) => KIND_DEFS[k].label.toLowerCase()).join(', ')}.`;
-const DOWNLOAD_ACK_KEY = '3dtool:download-ack';
 
 type Outcome = { severity: 'success' | 'info' | 'warning' | 'error'; text: string; detail?: string; retry?: boolean };
 type PendingPlan = { plan: ScenePlan; aliases: Record<string, string>; prompt: string; elapsedMs: number };
-
-function downloadAcknowledged(key: string): boolean {
-  try {
-    return (JSON.parse(localStorage.getItem(DOWNLOAD_ACK_KEY) ?? '[]') as string[]).includes(key);
-  } catch {
-    return false;
-  }
-}
-
-function acknowledgeDownload(key: string) {
-  try {
-    const list = JSON.parse(localStorage.getItem(DOWNLOAD_ACK_KEY) ?? '[]') as string[];
-    localStorage.setItem(DOWNLOAD_ACK_KEY, JSON.stringify([...new Set([...list, key])].slice(-10)));
-  } catch {
-    /* storage unavailable: ask again next time */
-  }
-}
 
 function describeOps(plan: ScenePlan): string[] {
   return plan.operations.map((op) => {
@@ -88,7 +65,7 @@ function describeOps(plan: ScenePlan): string[] {
   });
 }
 
-function GenerationStatus({ hosted }: { hosted: boolean }) {
+function GenerationStatus() {
   const generation = useAiStore((s) => s.generation);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -96,24 +73,23 @@ function GenerationStatus({ hosted }: { hosted: boolean }) {
     return () => clearInterval(timer);
   }, []);
   const seconds = generation ? Math.max(0, Math.round((now - generation.startedAt) / 1000)) : 0;
-  let detail = 'Reading your prompt and the scene…';
-  if (hosted) detail = 'Waiting for the Hugging Face model…';
-  if (generation && generation.tokens > 0) detail = `Writing the plan: ${generation.tokens} tokens`;
+  let detail = 'Sending to Hugging Face…';
+  if (generation?.phase === 'thinking') detail = `Model is reasoning (${generation.tokens} tokens)`;
+  if (generation?.phase === 'writing') detail = `Writing the plan (${generation.tokens} tokens)`;
   if (generation?.attempt === 2) detail = `First reply was invalid, retrying once. ${detail}`;
   return (
     <Box sx={{ mt: 1 }} aria-live="polite">
       <LinearProgress />
       <Typography variant="caption" color="text.secondary">
-        {detail} · {seconds}s{hosted ? '' : ' on your CPU'}
+        {detail} · {seconds}s
       </Typography>
     </Box>
   );
 }
 
 export function PromptPanel() {
-  const { resolved, isLoaded, loadModel, generate, cancel } = useAiPlanner();
+  const { resolved, hasToken, generate, cancel } = useAiPlanner();
   const status = useAiStore((s) => s.status);
-  const aiError = useAiStore((s) => s.error);
   const history = useAiStore((s) => s.history);
   const reviewBeforeApply = useAiStore((s) => s.reviewBeforeApply);
   const runPlan = useSceneStore((s) => s.runPlan);
@@ -123,24 +99,11 @@ export function PromptPanel() {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [rawOutputs, setRawOutputs] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [downloadPrompt, setDownloadPrompt] = useState<string | null | undefined>(undefined);
   const [confirmPlan, setConfirmPlan] = useState<PendingPlan | null>(null);
   const [reviewPlan, setReviewPlan] = useState<(PendingPlan & { text: string; error: string | null }) | null>(null);
-  const [image, setImage] = useState<{ url: string; name: string } | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
 
-  const busy = status === 'loading' || status === 'generating';
-  const hosted = !('error' in resolved) && resolved.runtime === 'hosted';
-  const acceptsImages = !('error' in resolved) && resolved.supportsImages;
-  const modelLabel = 'error' in resolved ? 'invalid model' : `${resolved.modelId} (${resolved.dtype})`;
-
-  const attachImage = async (file: File) => {
-    try {
-      setImage({ url: await loadReferenceImage(file), name: file.name || 'pasted image' });
-    } catch (e) {
-      setOutcome({ severity: 'error', text: e instanceof Error ? e.message : 'Could not read the image.' });
-    }
-  };
+  const busy = status === 'generating';
+  const modelLabel = 'error' in resolved ? 'invalid model' : resolved.modelId;
   const addHistory = (entry: Omit<PromptHistoryEntry, 'id' | 'at' | 'model'>) =>
     useAiStore.getState().addHistory({ ...entry, model: modelLabel });
 
@@ -159,7 +122,7 @@ export function PromptPanel() {
     setLastPrompt(text);
     setOutcome(null);
     setRawOutputs([]);
-    const res = await generate(text, acceptsImages ? image?.url : undefined);
+    const res = await generate(text);
     setRawOutputs(res.rawOutputs);
     if (!res.ok) {
       const cancelled = 'cancelled' in res;
@@ -193,42 +156,21 @@ export function PromptPanel() {
       setOutcome({ severity: 'error', text: `Prompts are limited to ${LIMITS.maxPromptLength} characters.` });
       return;
     }
-    if (!isLoaded) {
-      if ('error' in resolved) {
-        setOutcome({ severity: 'error', text: resolved.error });
-        return;
-      }
-      if (!hosted && !downloadAcknowledged(modelKey(resolved))) {
-        setDownloadPrompt(text);
-        return;
-      }
-      if (!(await loadModel())) return;
+    if ('error' in resolved) {
+      setOutcome({ severity: 'error', text: resolved.error });
+      return;
+    }
+    if (!hasToken) {
+      setOutcome({ severity: 'info', text: 'Add your Hugging Face token to generate. Manual editing works without it.' });
+      setSettingsOpen(true);
+      return;
     }
     await runGeneration(text);
   };
 
-  const startLoad = async (pendingPrompt: string | null) => {
-    if ('error' in resolved) return;
-    acknowledgeDownload(modelKey(resolved));
-    setDownloadPrompt(undefined);
-    const ok = await loadModel();
-    if (ok && pendingPrompt) await runGeneration(pendingPrompt);
-  };
-
-  const requestLoad = () => {
-    if ('error' in resolved) return;
-    if (hosted || downloadAcknowledged(modelKey(resolved))) void startLoad(null);
-    else setDownloadPrompt(null);
-  };
-
   return (
     <Stack spacing={1.5} sx={{ p: 2 }}>
-      <ModelStatusCard resolved={resolved} isLoaded={isLoaded} onLoad={requestLoad} onOpenSettings={() => setSettingsOpen(true)} />
-      {status === 'error' && aiError && (
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={requestLoad}>Retry</Button>}>
-          {aiError} Manual editing still works.
-        </Alert>
-      )}
+      <ModelStatusCard resolved={resolved} hasToken={hasToken} onOpenSettings={() => setSettingsOpen(true)} />
 
       <Box>
         <Typography variant="subtitle2" component="label" htmlFor="prompt-input" sx={{ display: 'block', mb: 0.75 }}>
@@ -240,21 +182,9 @@ export function PromptPanel() {
           minRows={3}
           maxRows={8}
           fullWidth
-          placeholder={
-            acceptsImages
-              ? 'e.g. Build the chair in this photo, or create a walnut table 1.8 m wide'
-              : 'e.g. Create a walnut table 1.8 m wide and put a lamp on top'
-          }
+          placeholder="e.g. Create a walnut table 1.8 m wide and put a lamp on top"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          onPaste={(e) => {
-            if (!acceptsImages) return;
-            const file = Array.from(e.clipboardData.files).find((f) => ACCEPTED_IMAGE_TYPES.includes(f.type));
-            if (file) {
-              e.preventDefault();
-              void attachImage(file);
-            }
-          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
@@ -263,52 +193,9 @@ export function PromptPanel() {
           }}
           disabled={busy}
           slotProps={{ htmlInput: { maxLength: LIMITS.maxPromptLength } }}
-          helperText={`${prompt.length}/${LIMITS.maxPromptLength} · Ctrl+Enter to generate${acceptsImages ? ' · paste or attach an image' : ''}`}
+          helperText={`${prompt.length}/${LIMITS.maxPromptLength} · Ctrl+Enter to generate`}
         />
-        {acceptsImages && image && (
-          <Box sx={{ mt: 1, position: 'relative', display: 'inline-block' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview */}
-            <img
-              src={image.url}
-              alt={`Reference image: ${image.name}`}
-              style={{ display: 'block', maxWidth: '100%', maxHeight: 140, borderRadius: 4 }}
-            />
-            <IconButton
-              size="small"
-              aria-label="Remove reference image"
-              onClick={() => setImage(null)}
-              disabled={busy}
-              sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'background.paper', '&:hover': { bgcolor: 'background.paper' } }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        )}
         <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-          {acceptsImages && (
-            <>
-              <input
-                ref={fileInput}
-                type="file"
-                accept={ACCEPTED_IMAGE_TYPES.join(',')}
-                hidden
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = '';
-                  if (file) void attachImage(file);
-                }}
-              />
-              <Button
-                variant="outlined"
-                onClick={() => fileInput.current?.click()}
-                disabled={busy}
-                aria-label="Attach reference image"
-                sx={{ minWidth: 0, px: 1.25 }}
-              >
-                <AddPhotoAlternateOutlinedIcon fontSize="small" />
-              </Button>
-            </>
-          )}
           {status === 'generating' ? (
             <Button variant="outlined" color="inherit" startIcon={<StopCircleOutlinedIcon />} onClick={cancel} fullWidth>
               Cancel
@@ -321,11 +208,11 @@ export function PromptPanel() {
               disabled={busy || !prompt.trim()}
               fullWidth
             >
-              {isLoaded || hosted ? 'Generate' : 'Load model & generate'}
+              Generate
             </Button>
           )}
         </Stack>
-        {status === 'generating' && <GenerationStatus hosted={hosted} />}
+        {status === 'generating' && <GenerationStatus />}
       </Box>
 
       {outcome && (
@@ -450,36 +337,12 @@ export function PromptPanel() {
       )}
 
       <Typography variant="caption" color="text.secondary">
-        {hosted
-          ? 'Prompts and any attached image are sent through this app’s server to a vision model on Hugging Face Inference.'
-          : 'Prompts are interpreted on this device by a small open model; model files are downloaded from Hugging Face.'}{' '}
-        The AI only proposes a restricted JSON plan — the app validates it and builds every object from procedural Three.js
-        geometry. It works best for furniture and basic shapes, not realistic organic objects.
+        Prompts and a short scene summary are sent from your browser to Hugging Face Inference Providers using your
+        token. The AI only proposes a restricted JSON plan — the app validates it and builds every object from procedural
+        Three.js geometry. It works best for furniture and basic shapes, not realistic organic objects.
       </Typography>
 
       <ModelSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
-      <ConfirmDialog
-        open={downloadPrompt !== undefined}
-        title="Download the AI model?"
-        confirmLabel="Download and load"
-        onCancel={() => setDownloadPrompt(undefined)}
-        onConfirm={() => void startLoad(downloadPrompt ?? null)}
-      >
-        {'error' in resolved ? null : (
-          <>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>{resolved.modelId}</strong> ({resolved.dtype})
-              {resolved.approxDownloadMB ? ` is about ${resolved.approxDownloadMB} MB` : ' has an unknown size'} and is
-              downloaded once from Hugging Face, then cached by your browser.
-            </Typography>
-            <Typography variant="body2">
-              It runs on your CPU and can use more memory than its download size. Your prompts stay on this device. You can
-              pick a lighter or stronger model under “Model &amp; strength”.
-            </Typography>
-          </>
-        )}
-      </ConfirmDialog>
 
       <ConfirmDialog
         open={Boolean(confirmPlan)}

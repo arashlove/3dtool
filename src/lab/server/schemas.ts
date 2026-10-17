@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IMAGE_LIMITS } from '@/ai/model-config';
+import { IMAGE_LIMITS } from '../types';
 
 const vec3 = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]);
 
