@@ -281,8 +281,9 @@ export const useLabStore = create<LabState>((set, get) => {
       if (additive) {
         const all = group.every((g) => selected.includes(g));
         set({ selected: all ? selected.filter((x) => !group.includes(x)) : [...new Set([...selected, ...group])] });
-      } else if (sameSet(selected, group) && group.length > 1) {
-        set({ selected: [id] }); // second click on a selected object drills into the part
+      } else if (group.length > 1 && selected.length > 0 && selected.every((x) => group.includes(x))) {
+        // A second click on a selected object drills into the part; other parts of it stay part-level.
+        set({ selected: [id] });
       } else {
         set({ selected: sameSet(selected, [id]) && group.length === 1 ? [] : group });
       }
