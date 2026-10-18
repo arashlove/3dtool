@@ -41,7 +41,6 @@ import { createSampleScene } from '@/core/scene/sample-scene';
 import { exportGlb } from '@/lab/engine/export';
 import { getLabRoot, useLabStore } from '@/lab/store';
 import { useLabAiEnabled } from '@/lab/ai-token';
-import { useLabStore } from '@/lab/store';
 import { loadAutosave } from '@/persistence/autosave';
 import { hasSeenTour, LAB_TOUR_KEY } from '@/persistence/tour';
 import { useAiStore } from '@/state/ai-store';

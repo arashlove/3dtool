@@ -9,13 +9,6 @@ x-zenith:
   expose:
     - { service: web, port: 3000, web: true }
   env:
-    HF_TOKEN:
-      services: [web]
-      input:
-        label: Hugging Face token (Future Lab)
-        description: Optional. Read token with "Make calls to Inference Providers" permission, used server-side by the Future Lab AI features. Shape Studio uses each visitor's own token instead.
-        required: false
-        secret: true
     # View in AR builds phone links (and their QR codes) from the app's public HTTPS address.
     PUBLIC_BASE_URL:
       alias: ZENITH_PUBLIC_URL
