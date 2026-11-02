@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyPlan } from '@/core/commands/dispatcher';
+import { parsePlanText } from '@/core/commands/parser';
 import { buildCompactSceneContext } from '@/core/prompt/scene-context';
 import { createPlannerPrompt } from '@/core/prompt/planner-prompt';
 import { createEmptyDocument } from '@/core/schema/scene';
@@ -108,5 +109,11 @@ describe('planner prompt', () => {
     expect(last.role).toBe('user');
     expect(last.content).toContain('selected: obj:1 table "Desk"');
     expect(ctx.aliases['obj:1']).toBe(doc.objects[0].id);
+  });
+
+  it('every few-shot reply is a valid plan', () => {
+    const replies = createPlannerPrompt('x', buildCompactSceneContext(createEmptyDocument(), null)).filter((m) => m.role === 'assistant');
+    expect(replies.length).toBeGreaterThan(0);
+    for (const reply of replies) expect(parsePlanText(reply.content)).toMatchObject({ ok: true });
   });
 });

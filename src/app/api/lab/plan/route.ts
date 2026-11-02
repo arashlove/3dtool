@@ -7,9 +7,8 @@ import type { EditPlan } from '@/lab/types';
 
 /**
  * Prompt → edit plan. With an attached snapshot the vision model (HF_VLM_MODEL) plans; otherwise the
- * text model (HF_LLM_MODEL). Without a token (the visitor's own or HF_TOKEN), or when the AI returns
- * nothing usable, the offline keyword planner answers. The browser applies the plan; the server never
- * touches geometry.
+ * text model (HF_LLM_MODEL), using the visitor's token from the request. Without a token, or when the AI returns nothing usable, the offline
+ * keyword planner answers. The browser applies the plan; the server never touches geometry.
  */
 export async function POST(request: Request) {
   const body = await readJson(request, planRequestSchema);

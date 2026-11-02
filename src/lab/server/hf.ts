@@ -5,17 +5,17 @@ import {
   type InferenceProviderOrPolicy,
 } from '@huggingface/inference';
 import { extractJsonObject } from '@/core/commands/parser';
-import { HF_TOKEN_HEADER, type HealthInfo } from '../types';
+import { HF_TOKEN_HEADER, HF_TOKEN_PATTERN } from '../token-header';
+import type { HealthInfo } from '../types';
 
 /**
- * Server-only Hugging Face access for the Future Lab. HF_TOKEN never leaves the server; a visitor's own
- * token (see requestToken) is used for that one request only. Any *_MODEL value may also be a dedicated
- * Inference Endpoint URL.
+ * Server-only Hugging Face access for the Future Lab. Each request carries the visitor's own token
+ * in a header; it is used for that request only and is never stored or logged.
+ * Any *_MODEL value may also be a dedicated Inference Endpoint URL.
  */
 export function labSettings() {
   const env = (key: string, fallback: string) => process.env[key]?.trim() || fallback;
   return {
-    token: process.env.HF_TOKEN?.trim() ?? '',
     provider: env('HF_PROVIDER', 'auto'),
     llm: env('HF_LLM_MODEL', 'openai/gpt-oss-120b'),
     vlm: env('HF_VLM_MODEL', 'Qwen/Qwen3.8-27B'),
@@ -24,23 +24,15 @@ export function labSettings() {
   };
 }
 
-export const aiEnabled = () => labSettings().token.length > 0;
-
-const VISITOR_TOKEN = /^hf_[A-Za-z0-9]{8,200}$/;
-
-/**
- * Token for one Lab request: the visitor's own when the browser sends one (billed to them, never stored
- * or logged), else the server's HF_TOKEN. Empty when neither is available.
- */
-export function requestToken(request: Request): string {
-  const visitor = request.headers.get(HF_TOKEN_HEADER)?.trim() ?? '';
-  return VISITOR_TOKEN.test(visitor) ? visitor : labSettings().token;
+/** The visitor's token from the request, or null when absent or malformed. */
+export function requestToken(request: Request): string | null {
+  const token = request.headers.get(HF_TOKEN_HEADER)?.trim() ?? '';
+  return HF_TOKEN_PATTERN.test(token) ? token : null;
 }
 
 export function health(): HealthInfo {
   const s = labSettings();
   return {
-    ai_enabled: aiEnabled(),
     provider: s.provider,
     models: { llm: s.llm, vlm: s.vlm, image: s.image, three_d: process.env.HF_3D_SPACE?.trim() || 'microsoft/TRELLIS.2' },
   };
@@ -58,7 +50,7 @@ export class HFError extends Error {
 }
 
 function client(token: string): InferenceClient {
-  if (!token) throw new HFError('No Hugging Face token.', true);
+  if (!token) throw new HFError('Add your Hugging Face token to use the AI.', true);
   return new InferenceClient(token);
 }
 
@@ -76,7 +68,7 @@ export function explain(e: unknown, model: string): HFError {
   const message = e instanceof Error ? e.message : String(e);
   const provider = labSettings().provider;
   if (status === 401 || status === 403 || /unauthori[sz]ed|invalid (username|token)|forbidden/i.test(message)) {
-    return new HFError('The Hugging Face token was rejected. Create a fine-grained token with "Make calls to Inference Providers".', true);
+    return new HFError('Your Hugging Face token was rejected. Create a fine-grained token with "Make calls to Inference Providers".', true);
   }
   if (status === 402 || /credit|payment required|quota/i.test(message)) {
     return new HFError('Your Hugging Face Inference Providers credits are used up.', true);

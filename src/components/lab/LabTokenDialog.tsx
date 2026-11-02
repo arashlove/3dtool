@@ -1,46 +1,61 @@
 'use client';
 
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Divider from '@mui/material/Divider';
+import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import { HfTokenFields } from '@/components/common/HfTokenFields';
 import { useLabStore } from '@/lab/store';
 import { useAiStore } from '@/state/ai-store';
+import { HfTokenFields } from '../common/HfTokenFields';
 
-/** The visitor's own Hugging Face token for the Lab's AI features; the same token Shape Studio uses. */
-export function LabTokenDialog() {
-  const open = useLabStore((s) => s.tokenDialog);
-  const close = () => useLabStore.getState().set({ tokenDialog: false });
+export function LabTokenDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
-      {open && <TokenForm onClose={close} />}
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth scroll="paper">
+      {open && <LabTokenForm onClose={onClose} />}
     </Dialog>
   );
 }
 
-/** Mounted only while open, so it starts from the stored token each time. */
-function TokenForm({ onClose }: { onClose: () => void }) {
-  const store = useAiStore();
-  const [token, setToken] = useState(store.token ?? '');
-  const [remember, setRemember] = useState(store.rememberToken);
-
-  const save = () => {
-    store.setToken(token, remember);
-    onClose();
-  };
+function LabTokenForm({ onClose }: { onClose: () => void }) {
+  const stored = useAiStore();
+  const health = useLabStore((s) => s.health);
+  const [token, setToken] = useState(stored.token ?? '');
+  const [remember, setRemember] = useState(stored.rememberToken);
 
   return (
     <>
       <DialogTitle>Hugging Face token</DialogTitle>
       <DialogContent dividers>
         <HfTokenFields token={token} onTokenChange={setToken} remember={remember} onRememberChange={setRemember} />
+        {health && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" gutterBottom>
+              Models used by the Future Lab
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary', fontSize: 14 }}>
+              <li>Edit planner: {health.models.llm}</li>
+              <li>Vision: {health.models.vlm}</li>
+              <li>Images: {health.models.image}</li>
+              <li>Text to 3D: {health.models.three_d}</li>
+            </Box>
+          </>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={save}>
+        <Button
+          variant="contained"
+          onClick={() => {
+            stored.setToken(token, remember);
+            onClose();
+          }}
+        >
           Save
         </Button>
       </DialogActions>

@@ -26,7 +26,7 @@ ${kindLines()}
 MATERIAL = {"color":"#RRGGBB or colour word","preset":"${MATERIAL_PRESET_NAMES.join('|')}","metalness":0-1,"roughness":0-1,"opacity":0.2-1} (all fields optional)
 
 Operations (at most ${LIMITS.maxOpsPerPlan}):
-{"op":"create","ref":"new:a","kind":KIND,"name":TEXT,"params":{only non-default params},"materials":{PART:MATERIAL},"transform":{"position":[x,y,z],"rotationDeg":[x,y,z]}} (transform optional)
+{"op":"create","ref":"new:a","kind":KIND,"name":TEXT,"params":{only non-default params},"materials":{PART:MATERIAL},"transform":{"position":[x,0,z],"rotationDeg":[x,y,z]}} (transform optional; position y is the bottom, 0 = on the floor)
 {"op":"set_params","target":T,"changes":{PARAM:NUMBER}}
 {"op":"set_material","target":T,"part":PART,"changes":MATERIAL}
 {"op":"set_transform","target":T,"position":[x,y,z],"rotationDeg":[x,y,z],"scale":[x,y,z]}
@@ -46,7 +46,7 @@ Rules:
 - Every parameter must stay inside its allowed range.
 - Use place_relative for left/right/front/behind/on top of other objects.
 - Objects stand on their position: position y is the bottom of the object, x/z is its centre.
-- Rooms: exactly 6 create ops of kind box, each 0.1 m thick with its position in "transform": floor (y=-0.1), 4 walls (y=0, height about 2.6) and ceiling (y=wall height). Centre the room on the existing objects using their "at" values. Walls along x use width=room length, depth=0.1; walls along z use width=0.1, depth=room width.
+- Rooms: 6 box creates, each 0.1 m thick, each with "transform":{"position":[x,y,z]} where y is the box's bottom. Floor: y=-0.1. The 4 walls stand on the floor: y=0 (never half their height), height about 2.6. Ceiling: y=wall height. Centre the room on the existing objects using their "at" values. Walls along x use width=room length, depth=0.1; walls along z use width=0.1, depth=room width.
 - Use part names exactly as listed. Use "main" for the whole object.
 - Never output code, HTML or URLs.`;
 
@@ -79,6 +79,16 @@ const EXAMPLES: ChatMessage[] = [
     role: 'assistant',
     content:
       '{"version":1,"status":"ok","message":"Add a red chair right of the table.","operations":[{"op":"create","ref":"new:c1","kind":"chair","name":"Red Chair","materials":{"seat":{"color":"red"},"back":{"color":"red"}}},{"op":"place_relative","target":"new:c1","anchor":"obj:1","relation":"right_of","gap":0.15}]}',
+  },
+  {
+    role: 'user',
+    content:
+      'Scene:\nselected: none\nobjects (2):\nobj:1 table "Oak Dining Table" at[0,0,0] size[1.8,0.75,0.85]\nobj:2 chair "Red Chair" at[1.29,0,0] size[0.48,0.9,0.5]\nRequest: Add a white wall 3 m long and 2.4 m high at z = -1.5.',
+  },
+  {
+    role: 'assistant',
+    content:
+      '{"version":1,"status":"ok","message":"Add a 2.4 m wall standing on the floor at z = -1.5.","operations":[{"op":"create","ref":"new:w1","kind":"box","name":"Wall","params":{"width":3,"height":2.4,"depth":0.1},"materials":{"main":{"color":"white"}},"transform":{"position":[0,0,-1.5]}}]}',
   },
   {
     role: 'user',

@@ -6,6 +6,7 @@ import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import TuneIcon from '@mui/icons-material/Tune';
 import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
@@ -23,6 +24,7 @@ import { LIMITS } from '@/core/schema/constants';
 import { createEmptyDocument, type SceneDocument } from '@/core/schema/scene';
 import { useSceneStore } from '@/state/scene-store';
 import { notify, useUiStore } from '@/state/ui-store';
+import { ViewInArDialog } from '../ar/ViewInArDialog';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 function download(data: BlobPart, type: string, fileName: string) {
@@ -81,6 +83,7 @@ export function ProjectBar({ compact, onOpenPrompt, onOpenPanel }: Props) {
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
   const [pendingReplace, setPendingReplace] = useState<{ doc: SceneDocument; label: string } | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [arOpen, setArOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const replace = (doc: SceneDocument, label: string) => {
@@ -149,6 +152,13 @@ export function ProjectBar({ compact, onOpenPrompt, onOpenPanel }: Props) {
       <BarButton compact={compact} icon={<FolderOpenOutlinedIcon fontSize="small" />} label="Open" onClick={() => fileInput.current?.click()} />
       <BarButton compact={compact} icon={<SaveOutlinedIcon fontSize="small" />} label="Save JSON" onClick={save} />
       <BarButton compact={compact} icon={exporting ? <ViewInArOutlinedIcon fontSize="small" /> : <FileDownloadOutlinedIcon fontSize="small" />} label="Export GLB" onClick={() => void exportGlb()} disabled={!hasObjects || exporting} />
+      <BarButton compact={compact} icon={<QrCode2Icon fontSize="small" />} label="View in AR" onClick={() => setArOpen(true)} disabled={!hasObjects} />
+      <ViewInArDialog
+        open={arOpen}
+        onClose={() => setArOpen(false)}
+        title={title}
+        makeGlb={() => exportSceneToGlb(useSceneStore.getState().doc)}
+      />
       <BarButton compact={compact} icon={<HelpOutlineIcon fontSize="small" />} label="Tour" onClick={() => useUiStore.getState().startTour()} />
       {compact && onOpenPanel && (
         <DrawerToggle title="Objects & inspector" label="Open objects and inspector panel" icon={<TuneIcon fontSize="small" />} tour="objects-toggle" onClick={onOpenPanel} />

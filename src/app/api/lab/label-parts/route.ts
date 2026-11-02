@@ -3,10 +3,10 @@ import { LABEL_SYSTEM_PROMPT, labelUserMessage } from '@/lab/prompts';
 import { chatJson, HFError, labSettings, requestToken } from '@/lab/server/hf';
 import { labelRequestSchema, readJson } from '@/lab/server/schemas';
 
-/** AI part naming from the marked snapshot. Needs the visitor's token or HF_TOKEN. */
+/** AI part naming from the marked snapshot. Needs the visitor's Hugging Face token. */
 export async function POST(request: Request) {
   const token = requestToken(request);
-  if (!token) return Response.json({ error: 'AI names need a Hugging Face token.' }, { status: 400 });
+  if (!token) return Response.json({ error: 'AI names need your Hugging Face token (top bar).' }, { status: 400 });
   const body = await readJson(request, labelRequestSchema);
   if (!body.ok) return body.response;
   const { parts, image } = body.data;

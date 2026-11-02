@@ -25,12 +25,8 @@ Differences from the original FastAPI design:
 
 API: `GET /api/lab/health`, `POST /api/lab/plan`, `POST /api/lab/label-parts` (needs a token),
 `POST /api/lab/texture` (returns 503 without a token, and the browser draws a procedural image).
-
-Each AI route uses the visitor's own Hugging Face token when the browser sends one in the
-`X-HF-Token` header (the token saved in Shape Studio's model settings or the Lab's token dialog),
-and otherwise the server's `HF_TOKEN`. The visitor's token is used for that request only and is never
-stored or logged. `GET /api/lab/health` reports `ai_enabled` for the server token alone; the browser
-treats the Lab's AI as available when either token exists.
+The AI routes take the visitor's Hugging Face token from the `x-hf-token` request header (the same token
+entered in Shape Studio, or via the token chip in the Lab's top bar) and use it for that request only.
 
 ## Importing and arranging models
 
@@ -49,6 +45,6 @@ API (`src/lab/server/trellis.ts`, `POST /api/lab/generate-3d`). A prompt first b
 with `HF_IMAGE_MODEL`; TRELLIS.2 removes the background and returns a PBR-textured GLB, which is added
 beside the scene (scaled to a chosen height) or replaces it. The route streams progress as NDJSON.
 
-The Space runs on ZeroGPU with the request's token (the visitor's own, else the server's `HF_TOKEN`),
-so generation uses that account's daily ZeroGPU quota, and it can queue when the Space is busy. `HF_3D_SPACE` points at another Space with
+The Space runs on ZeroGPU with the visitor's token, so generation uses their account's daily
+ZeroGPU quota, and it can queue when the Space is busy. `HF_3D_SPACE` points at another Space with
 the same API (for example a duplicate on your own hardware).

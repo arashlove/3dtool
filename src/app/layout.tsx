@@ -2,6 +2,7 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import type { Metadata, Viewport } from 'next';
 import { AppNav } from '@/components/app-shell/AppNav';
 import { AppTheme } from '@/components/app-shell/AppTheme';
+import { Build3dsFooter } from '@/components/app-shell/Build3dsFooter';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             <div className="app-root">
               <AppNav />
               <main className="app-main">{children}</main>
+              <Build3dsFooter />
             </div>
           </AppTheme>
         </AppRouterCacheProvider>

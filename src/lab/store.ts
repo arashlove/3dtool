@@ -4,13 +4,13 @@ import type * as THREE from 'three';
 import { create } from 'zustand';
 import { disposeObject } from '@/core/geometry/ThreeSceneMaster';
 import type { SceneDocument } from '@/core/schema/scene';
-import { useAiStore } from '@/state/ai-store';
+import { labAiEnabled, labHeaders, NO_TOKEN_MESSAGE } from './ai-token';
 import { applySteps } from './engine/apply';
 import { exportGlb } from './engine/export';
 import { boundsOf, collectParts, describeAll } from './engine/parts';
 import { applyFaceLabels } from './engine/split';
 import { Transaction, type HistoryEntry } from './engine/transaction';
-import { labAiReady, labHeaders } from './hf-token';
+import { randomId } from '@/core/id';
 import { loadFromStudio, loadGlbBuffer, loadGlbFile, placeBeside, type LoadedModel } from './loader';
 import { captureMarkedViews } from './snapshot';
 import { segmentByTexture as runTextureSegmentation } from './texseg';
@@ -75,8 +75,6 @@ type LabState = {
   toast: Toast | null;
   focusRequest: number;
   generating3d: Generate3dStatus | null;
-  /** The Hugging Face token dialog is open. */
-  tokenDialog: boolean;
 
   checkHealth: () => Promise<void>;
   importStudio: (doc: SceneDocument | null) => void;
@@ -106,7 +104,7 @@ type LabState = {
   undo: () => void;
   redo: () => void;
   downloadGlb: () => Promise<void>;
-  set: (patch: Partial<Pick<LabState, 'vision' | 'autoApply' | 'splitComponents' | 'textureSegments' | 'tokenDialog'>>) => void;
+  set: (patch: Partial<Pick<LabState, 'vision' | 'autoApply' | 'splitComponents' | 'textureSegments'>>) => void;
   notify: (message: string, severity?: Toast['severity']) => void;
   dismissToast: () => void;
   requestFocus: () => void;
@@ -128,7 +126,7 @@ export function registerViewport(v: Viewport | null) {
   viewport = v;
 }
 
-const uid = () => crypto.randomUUID();
+const uid = randomId;
 
 async function readError(response: Response): Promise<string> {
   const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -212,7 +210,6 @@ export const useLabStore = create<LabState>((set, get) => {
     toast: null,
     focusRequest: 0,
     generating3d: null,
-    tokenDialog: false,
 
     checkHealth: async () => {
       try {
@@ -370,7 +367,7 @@ export const useLabStore = create<LabState>((set, get) => {
     sendPrompt: async (prompt) => {
       const text = prompt.trim();
       if (!text || !root) return;
-      const { vision, health, selected } = get();
+      const { vision, selected } = get();
       const userId = uid();
       const replyId = uid();
       set((s) => ({
@@ -378,7 +375,7 @@ export const useLabStore = create<LabState>((set, get) => {
       }));
 
       let snapshot: { image: string; markers: Record<string, number> } | null = null;
-      if (vision && labAiReady(health) && viewport) {
+      if (vision && labAiEnabled() && viewport) {
         try {
           snapshot = captureMarkedViews(viewport.renderer, viewport.scene, root);
           set({ markers: snapshot.markers });
@@ -428,8 +425,8 @@ export const useLabStore = create<LabState>((set, get) => {
 
     autoLabel: async () => {
       if (!root || !viewport) return;
-      if (!labAiReady(get().health)) {
-        get().notify('AI names need a Hugging Face token.', 'warning');
+      if (!labAiEnabled()) {
+        get().notify(NO_TOKEN_MESSAGE, 'warning');
         return;
       }
       set({ busy: 'Naming parts…' });
@@ -593,10 +590,3 @@ export const useLabStore = create<LabState>((set, get) => {
     cancel3d: () => generateController?.abort(),
   };
 });
-
-/** Whether the Lab's AI features are available: the server has HF_TOKEN or the visitor saved a token. */
-export function useLabAiReady(): boolean {
-  const server = useLabStore((s) => Boolean(s.health?.ai_enabled));
-  const visitor = useAiStore((s) => Boolean(s.token));
-  return server || visitor;
-}

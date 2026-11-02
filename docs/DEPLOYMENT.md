@@ -1,36 +1,25 @@
 # Deployment
 
-3DTool runs as **one CPU-only web service**. Scene state and autosave live in the browser. In Shape
-Studio, each visitor's browser calls Hugging Face Inference Providers directly with that visitor's own
-token, so Studio needs no server secret. The Future Lab uses the same visitor token (see below), so a
-public deployment can run with no server token at all. **Do not** put a Hugging Face token in `zenith-compose.yml`,
-the Dockerfile or any `NEXT_PUBLIC_*` variable. The container needs no GPU and no volume.
+3DTool runs as **one CPU-only web service** with **no server secrets**. Scene state and autosave live
+in the browser. Every visitor enters their own Hugging Face token in the app, and it is shared by both
+pages (kept in session storage, or local storage if they tick "Remember"). **Do not** put a Hugging
+Face token in `zenith-compose.yml`, the Dockerfile, `.env.local` or any `NEXT_PUBLIC_*` variable. The
+container needs no GPU and no volume.
 
-## Future Lab tokens
+## How the token is used
 
-The Future Lab's AI features (prompt planner, vision model, AI part names, AI textures and decals,
-Text to 3D) run on the server and use, in order:
+- **Shape Studio:** the browser calls `router.huggingface.co` directly; the token never reaches the
+  3DTool server.
+- **Future Lab:** the AI features (prompt planner, vision model, AI part names, AI textures and decals,
+  Text to 3D) run in the server's API routes, so the browser sends the token in an `x-hf-token` header
+  with each request. The server uses it for that request only and never stores or logs it. Without a
+  token the Lab uses an offline keyword planner and procedural textures; texture segmentation never
+  needs one.
 
-1. **The visitor's own token.** It is the token saved in Shape Studio's model settings, or entered
-   with the Lab's AI chip. The browser sends it with each Lab AI request (`X-HF-Token` header); the
-   server uses it for that request only and never stores or logs it. Calls are billed to the visitor.
-2. **The server's `HF_TOKEN`** (optional): a token with the "Make calls to Inference Providers"
-   permission, read at request time and never sent to the browser.
+Calls are billed to each visitor's own Hugging Face account (Text to 3D uses their ZeroGPU quota).
 
-With neither, the Lab uses an offline keyword planner and procedural textures; texture segmentation
-never needs a token. Leave `HF_TOKEN` unset on a public deployment unless you want to pay for every
-visitor.
-
-- **Local:** copy `.env.example` to `.env.local`, set `HF_TOKEN=hf_...`, restart `npm run dev`.
-  `.env.local` is gitignored and excluded from the Docker build.
-- **Docker:** `docker run --rm -p 3000:3000 -e HF_TOKEN=hf_... 3dtool`.
-- **Zenith:** `zenith-compose.yml` declares `HF_TOKEN` as an optional secret input; enter it in the
-  deployment's credentials panel, never in the file.
-
-Model settings (`HF_PROVIDER`, `HF_LLM_MODEL`, `HF_VLM_MODEL`, `HF_IMAGE_MODEL`, `HF_3D_SPACE`) are
-listed in `.env.example`. Calls are billed to the token's account (Text to 3D uses its ZeroGPU quota),
-and anyone who can reach a public deployment can use them (visitors without their own token fall back
-to it), so watch usage or add rate limiting before sharing the URL widely.
+Optional model settings (`HF_PROVIDER`, `HF_LLM_MODEL`, `HF_VLM_MODEL`, `HF_IMAGE_MODEL`, `HF_3D_SPACE`)
+are listed in `.env.example`.
 
 ## Container
 
@@ -55,9 +44,28 @@ files.
 
 ## Network
 
-Visitors' browsers must be able to reach `https://router.huggingface.co` (Shape Studio). The server
-needs outbound HTTPS to `router.huggingface.co`, `huggingface.co` and `*.hf.space` for the Future Lab's
-AI features and Text to 3D.
+Visitors' browsers must be able to reach `https://router.huggingface.co`. The `/ar/[id]` page loads
+`@google/model-viewer` 4.1.0 from `cdn.jsdelivr.net`.
+
+## View in AR share links
+
+- **Routes:**
+  - `POST /api/ar?title=…` takes a GLB body and returns `{ id, url, expiresAt, bytes, qrSvg, secure }`.
+  - `GET` or `HEAD /api/ar/[id]` serves the GLB, with `X-Model-Title` and `X-Expires-At` headers.
+  - `/ar/[id]` is the phone page.
+- **Storage:** shared GLBs live only in server memory, held on `globalThis` so every route sees the
+  same store. Each lasts 60 minutes. The caps are 30 MB per scene and 300 MB and 50 scenes in total,
+  with the oldest dropped first. All the limits are in `src/ar/limits.ts`.
+- **Upload rules:**
+  - 10 uploads per client per 10 minutes, keyed on the first `X-Forwarded-For` address;
+  - 300 uploads a day in total;
+  - cross-site requests are refused (`Sec-Fetch-Site`);
+  - the body must be a valid glTF 2.0 binary.
+- **Link address:** links use `PUBLIC_BASE_URL` first. `zenith-compose.yml` maps it to Zenith's
+  `ZENITH_PUBLIC_URL`. Next come the proxy's `X-Forwarded-Host` and `X-Forwarded-Proto`, then the
+  request. When the request came to `localhost`, the link uses the machine's LAN address instead, so a
+  phone on the same Wi-Fi can open it. That plain-HTTP link shows the 3D view, but Android blocks the
+  AR camera without HTTPS.
 
 ## Zenith
 

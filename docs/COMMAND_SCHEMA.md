@@ -11,7 +11,7 @@ and leaves the scene unchanged.
   "version": 1,
   "status": "ok",
   "message": "short summary",
-  "operations": [ /* at most 6 */ ]
+  "operations": [ /* at most 12 */ ]
 }
 ```
 

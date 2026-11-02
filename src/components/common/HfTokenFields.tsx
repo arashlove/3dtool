@@ -12,21 +12,23 @@ const TOKEN_SETTINGS_URL = 'https://huggingface.co/settings/tokens/new?ownUserPe
 
 type Props = {
   token: string;
-  onTokenChange: (token: string) => void;
+  onTokenChange: (value: string) => void;
   remember: boolean;
-  onRememberChange: (remember: boolean) => void;
+  onRememberChange: (value: boolean) => void;
 };
 
-/** The visitor's own Hugging Face token. Shape Studio and the Future Lab share it (see ai-store). */
+export const tokenLooksWrong = (token: string) => token.trim() !== '' && !token.trim().startsWith('hf_');
+
+/** One token for the whole app: Shape Studio and the Future Lab share it through the AI store. */
 export function HfTokenFields({ token, onTokenChange, remember, onRememberChange }: Props) {
-  const tokenLooksWrong = token.trim() !== '' && !token.trim().startsWith('hf_');
+  const wrong = tokenLooksWrong(token);
   return (
     <>
       <Typography variant="subtitle2" gutterBottom>
         Hugging Face access token
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Prompts run on GPUs through{' '}
+        AI features run on GPUs through{' '}
         <Link href="https://huggingface.co/docs/inference-providers" target="_blank" rel="noopener noreferrer">
           Hugging Face Inference Providers
         </Link>
@@ -41,8 +43,8 @@ export function HfTokenFields({ token, onTokenChange, remember, onRememberChange
         type="password"
         value={token}
         onChange={(e) => onTokenChange(e.target.value)}
-        error={tokenLooksWrong}
-        helperText={tokenLooksWrong ? 'Hugging Face tokens start with "hf_".' : ' '}
+        error={wrong}
+        helperText={wrong ? 'Hugging Face tokens start with "hf_".' : ' '}
         fullWidth
         autoComplete="off"
         slotProps={{ htmlInput: { maxLength: 200, spellCheck: false } }}
@@ -52,9 +54,9 @@ export function HfTokenFields({ token, onTokenChange, remember, onRememberChange
         label={<Typography variant="body2">Remember on this device (otherwise kept for this tab session only)</Typography>}
       />
       <Alert severity="info" sx={{ mt: 1 }}>
-        The token stays in this browser. Shape Studio sends it only to router.huggingface.co. The Future Lab sends it with each
-        AI request to the 3DTool server, which passes it to Hugging Face for that request and does not store it. Your prompt and
-        a short summary of the scene are sent to Hugging Face and the inference provider it selects.
+        The token is kept only in this browser. Shape Studio sends it straight to router.huggingface.co. The Future Lab
+        sends it with each AI request to this app&apos;s server, which passes it to Hugging Face for that request only and
+        never stores or logs it.
       </Alert>
     </>
   );

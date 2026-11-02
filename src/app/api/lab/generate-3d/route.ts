@@ -22,7 +22,7 @@ function dataUrlToBlob(url: string): Blob {
  */
 export async function POST(request: Request) {
   const token = requestToken(request);
-  if (!token) return Response.json({ error: 'Text to 3D needs a Hugging Face token.' }, { status: 400 });
+  if (!token) return Response.json({ error: 'Text to 3D needs your Hugging Face token (top bar).' }, { status: 400 });
   const body = await readJson(request, requestSchema);
   if (!body.ok) return body.response;
   const { image, quality, seed } = body.data;

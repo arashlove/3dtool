@@ -17,8 +17,8 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { DEFAULT_PRESET_ID, MODEL_PRESETS, resolveModel, type ModelSelection } from '@/ai/model-config';
-import { HfTokenFields } from '@/components/common/HfTokenFields';
 import { useAiStore } from '@/state/ai-store';
+import { HfTokenFields } from '../common/HfTokenFields';
 
 function StrengthBars({ value }: { value: number }) {
   return (
@@ -55,7 +55,6 @@ function ModelSettingsForm({ onClose }: { onClose: () => void }) {
       : { kind: 'preset', presetId: MODEL_PRESETS.find((p) => p.id === choice)?.id ?? DEFAULT_PRESET_ID };
   const resolved = resolveModel(selection);
   const invalid = 'error' in resolved ? resolved.error : null;
-
   const save = () => {
     if (invalid) return;
     store.setSelection(selection);

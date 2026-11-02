@@ -1,6 +1,6 @@
 import * as THREE from 'three';
+import { labHeaders, NO_TOKEN_MESSAGE } from './ai-token';
 import { rng } from './engine/geometry';
-import { labHeaders } from './hf-token';
 import { colorFromName } from './plan';
 import { wrapSize } from './prompts';
 import type { TextureKind } from './types';
@@ -295,7 +295,7 @@ export async function generateConceptImage(prompt: string): Promise<string> {
     headers: labHeaders(),
     body: JSON.stringify({ prompt, size: 1024, kind: 'object', aspect: 1 }),
   });
-  if (response.status === 503) throw new Error('Text to 3D needs a Hugging Face token.');
+  if (response.status === 503) throw new Error(NO_TOKEN_MESSAGE);
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? `Image generation failed (${response.status}).`);
