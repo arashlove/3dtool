@@ -58,9 +58,10 @@ include monthly credits.
 | Strong | `Qwen/Qwen2.5-72B-Instruct` |
 | Custom | any chat model on Inference Providers, e.g. `zai-org/GLM-5.3` or `google/gemma-4-31B-it:fastest` |
 
-The token is kept in your browser (session storage, or local storage if you tick "remember") and sent
-only to `router.huggingface.co`. It is never sent to the 3DTool server, and the app has no server-side
-token. See [docs/MODEL_NOTES.md](docs/MODEL_NOTES.md) for details and what has been verified.
+The token is kept in your browser (session storage, or local storage if you tick "remember"). Shape
+Studio sends it only to `router.huggingface.co`. The Future Lab uses the same token: its AI requests
+carry it to the 3DTool server, which passes it to Hugging Face for that request and does not store it.
+See [docs/MODEL_NOTES.md](docs/MODEL_NOTES.md) for details and what has been verified.
 
 ## Browser requirements
 

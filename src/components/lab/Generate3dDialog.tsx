@@ -22,7 +22,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
 import { ACCEPTED_IMAGE_TYPES, loadReferenceImage } from '@/lab/reference-image';
-import { useLabStore, type Generate3dOptions } from '@/lab/store';
+import { useLabAiReady, useLabStore, type Generate3dOptions } from '@/lab/store';
 import { generateConceptImage } from '@/lab/textures';
 
 const QUALITIES: Array<{ id: Generate3dOptions['quality']; label: string; hint: string }> = [
@@ -69,7 +69,7 @@ export function Generate3dDialog({ open, onClose }: { open: boolean; onClose: ()
   const [mode, setMode] = useState<Generate3dOptions['mode']>('add');
   const [height, setHeight] = useState(0.5);
   const fileInput = useRef<HTMLInputElement>(null);
-  const aiEnabled = Boolean(health?.ai_enabled);
+  const aiEnabled = useLabAiReady();
 
   const makeConcept = async () => {
     setError(null);
@@ -110,8 +110,16 @@ export function Generate3dDialog({ open, onClose }: { open: boolean; onClose: ()
           becomes a concept image ({health?.models.image ?? 'text-to-image'}); TRELLIS.2 turns the image into a textured GLB.
         </Typography>
         {!aiEnabled && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Text to 3D needs HF_TOKEN in .env.local (restart the server after adding it).
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => useLabStore.getState().set({ tokenDialog: true })}>
+                Add token
+              </Button>
+            }
+          >
+            Text to 3D needs a Hugging Face token.
           </Alert>
         )}
 

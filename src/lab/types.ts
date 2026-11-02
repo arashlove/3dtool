@@ -133,3 +133,6 @@ export const IMAGE_LIMITS = {
   /** Length of the base64 data URL accepted by the server. */
   maxDataUrlChars: 4_000_000,
 } as const;
+
+/** Request header carrying the visitor's own Hugging Face token (the one saved in Shape Studio). */
+export const HF_TOKEN_HEADER = 'x-hf-token';

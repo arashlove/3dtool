@@ -2,15 +2,24 @@
 
 3DTool runs as **one CPU-only web service**. Scene state and autosave live in the browser. In Shape
 Studio, each visitor's browser calls Hugging Face Inference Providers directly with that visitor's own
-token, so Studio needs no server secret. **Do not** put a Hugging Face token in `zenith-compose.yml`,
+token, so Studio needs no server secret. The Future Lab uses the same visitor token (see below), so a
+public deployment can run with no server token at all. **Do not** put a Hugging Face token in `zenith-compose.yml`,
 the Dockerfile or any `NEXT_PUBLIC_*` variable. The container needs no GPU and no volume.
 
-## Future Lab token (optional, server-side)
+## Future Lab tokens
 
 The Future Lab's AI features (prompt planner, vision model, AI part names, AI textures and decals,
-Text to 3D) run on the server with `HF_TOKEN`: a token with the "Make calls to Inference Providers"
-permission. It is read at request time and never sent to the browser. Without it the Lab uses an
-offline keyword planner and procedural textures; texture segmentation never needs a token.
+Text to 3D) run on the server and use, in order:
+
+1. **The visitor's own token.** It is the token saved in Shape Studio's model settings, or entered
+   with the Lab's AI chip. The browser sends it with each Lab AI request (`X-HF-Token` header); the
+   server uses it for that request only and never stores or logs it. Calls are billed to the visitor.
+2. **The server's `HF_TOKEN`** (optional): a token with the "Make calls to Inference Providers"
+   permission, read at request time and never sent to the browser.
+
+With neither, the Lab uses an offline keyword planner and procedural textures; texture segmentation
+never needs a token. Leave `HF_TOKEN` unset on a public deployment unless you want to pay for every
+visitor.
 
 - **Local:** copy `.env.example` to `.env.local`, set `HF_TOKEN=hf_...`, restart `npm run dev`.
   `.env.local` is gitignored and excluded from the Docker build.
@@ -20,8 +29,8 @@ offline keyword planner and procedural textures; texture segmentation never need
 
 Model settings (`HF_PROVIDER`, `HF_LLM_MODEL`, `HF_VLM_MODEL`, `HF_IMAGE_MODEL`, `HF_3D_SPACE`) are
 listed in `.env.example`. Calls are billed to the token's account (Text to 3D uses its ZeroGPU quota),
-and anyone who can reach a public deployment can use them, so watch usage or add rate limiting
-before sharing the URL widely.
+and anyone who can reach a public deployment can use them (visitors without their own token fall back
+to it), so watch usage or add rate limiting before sharing the URL widely.
 
 ## Container
 
@@ -46,8 +55,9 @@ files.
 
 ## Network
 
-Visitors' browsers must be able to reach `https://router.huggingface.co`. The server makes no outbound
-calls.
+Visitors' browsers must be able to reach `https://router.huggingface.co` (Shape Studio). The server
+needs outbound HTTPS to `router.huggingface.co`, `huggingface.co` and `*.hf.space` for the Future Lab's
+AI features and Text to 3D.
 
 ## Zenith
 

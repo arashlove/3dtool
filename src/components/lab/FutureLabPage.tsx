@@ -37,10 +37,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createSampleScene } from '@/core/scene/sample-scene';
 import { useLabStore } from '@/lab/store';
 import { loadAutosave } from '@/persistence/autosave';
+import { useAiStore } from '@/state/ai-store';
 import { useSceneStore } from '@/state/scene-store';
 import { Generate3dDialog } from './Generate3dDialog';
 import { LabChatPanel } from './LabChatPanel';
 import { LabInspector } from './LabInspector';
+import { LabTokenDialog } from './LabTokenDialog';
 import { PartsPanel } from './PartsPanel';
 
 const LabViewport = dynamic(() => import('./LabViewport'), {
@@ -71,6 +73,7 @@ function isEditableTarget(target: EventTarget | null) {
 function useLabSetup() {
   useEffect(() => {
     const store = useLabStore.getState();
+    useAiStore.getState().hydrateFromStorage();
     void store.checkHealth();
     if (store.modelName === null) void studioDocument().then((doc) => useLabStore.getState().importStudio(doc));
 
@@ -105,12 +108,14 @@ function useLabSetup() {
 function HealthChip() {
   const health = useLabStore((s) => s.health);
   const error = useLabStore((s) => s.healthError);
+  const hasToken = useAiStore((s) => Boolean(s.token));
+  const openTokenDialog = () => useLabStore.getState().set({ tokenDialog: true });
   if (error) return <Chip size="small" color="error" variant="outlined" label="Server unreachable" title={error} />;
   if (!health) return <Chip size="small" variant="outlined" label="Checking AI…" />;
-  if (!health.ai_enabled) {
+  if (!health.ai_enabled && !hasToken) {
     return (
-      <Tooltip title="Add HF_TOKEN to .env.local and restart the server to enable the LLM, vision model and image generation. Texture segmentation works without it.">
-        <Chip size="small" color="warning" variant="outlined" label="Offline planner" />
+      <Tooltip title="Add your Hugging Face token to enable the LLM, vision model and image generation. Texture segmentation works without it.">
+        <Chip size="small" color="warning" variant="outlined" label="Offline planner · add token" onClick={openTokenDialog} />
       </Tooltip>
     );
   }
@@ -121,10 +126,11 @@ function HealthChip() {
           <div>LLM: {health.models.llm}</div>
           <div>Vision: {health.models.vlm}</div>
           <div>Images: {health.models.image}</div>
+          <div>{hasToken ? 'Using your token. Click to change it.' : "Using the server's token. Click to use your own."}</div>
         </Box>
       }
     >
-      <Chip size="small" color="success" variant="outlined" label={`Hugging Face (${health.provider})`} />
+      <Chip size="small" color="success" variant="outlined" label={`Hugging Face (${health.provider})`} onClick={openTokenDialog} />
     </Tooltip>
   );
 }
@@ -401,6 +407,7 @@ export function FutureLabPage() {
         )}
       </Box>
       <Toasts />
+      <LabTokenDialog />
     </Box>
   );
 }

@@ -5,11 +5,12 @@ import {
   type InferenceProviderOrPolicy,
 } from '@huggingface/inference';
 import { extractJsonObject } from '@/core/commands/parser';
-import type { HealthInfo } from '../types';
+import { HF_TOKEN_HEADER, type HealthInfo } from '../types';
 
 /**
- * Server-only Hugging Face access for the Future Lab. HF_TOKEN never leaves the server.
- * Any *_MODEL value may also be a dedicated Inference Endpoint URL.
+ * Server-only Hugging Face access for the Future Lab. HF_TOKEN never leaves the server; a visitor's own
+ * token (see requestToken) is used for that one request only. Any *_MODEL value may also be a dedicated
+ * Inference Endpoint URL.
  */
 export function labSettings() {
   const env = (key: string, fallback: string) => process.env[key]?.trim() || fallback;
@@ -24,6 +25,17 @@ export function labSettings() {
 }
 
 export const aiEnabled = () => labSettings().token.length > 0;
+
+const VISITOR_TOKEN = /^hf_[A-Za-z0-9]{8,200}$/;
+
+/**
+ * Token for one Lab request: the visitor's own when the browser sends one (billed to them, never stored
+ * or logged), else the server's HF_TOKEN. Empty when neither is available.
+ */
+export function requestToken(request: Request): string {
+  const visitor = request.headers.get(HF_TOKEN_HEADER)?.trim() ?? '';
+  return VISITOR_TOKEN.test(visitor) ? visitor : labSettings().token;
+}
 
 export function health(): HealthInfo {
   const s = labSettings();
@@ -45,12 +57,9 @@ export class HFError extends Error {
   }
 }
 
-let cached: { token: string; client: InferenceClient } | null = null;
-function client(): InferenceClient {
-  const s = labSettings();
-  if (!s.token) throw new HFError('HF_TOKEN is not set in .env.local', true);
-  if (!cached || cached.token !== s.token) cached = { token: s.token, client: new InferenceClient(s.token) };
-  return cached.client;
+function client(token: string): InferenceClient {
+  if (!token) throw new HFError('No Hugging Face token.', true);
+  return new InferenceClient(token);
 }
 
 const isUrl = (model: string) => /^https?:\/\//.test(model);
@@ -67,7 +76,7 @@ export function explain(e: unknown, model: string): HFError {
   const message = e instanceof Error ? e.message : String(e);
   const provider = labSettings().provider;
   if (status === 401 || status === 403 || /unauthori[sz]ed|invalid (username|token)|forbidden/i.test(message)) {
-    return new HFError('HF_TOKEN was rejected. Create a fine-grained token with "Make calls to Inference Providers".', true);
+    return new HFError('The Hugging Face token was rejected. Create a fine-grained token with "Make calls to Inference Providers".', true);
   }
   if (status === 402 || /credit|payment required|quota/i.test(message)) {
     return new HFError('Your Hugging Face Inference Providers credits are used up.', true);
@@ -92,6 +101,7 @@ const MAX_JSON_CHARS = 60_000;
  * attempt (and drops it if the provider rejects it), then makes one corrective retry on bad JSON.
  */
 export async function chatJson(opts: {
+  token: string;
   model: string;
   system: string;
   user: string;
@@ -115,7 +125,7 @@ export async function chatJson(opts: {
 
   const call = async () => {
     try {
-      const out = await client().chatCompletion(
+      const out = await client(opts.token).chatCompletion(
         {
           ...target(opts.model),
           messages,
@@ -149,10 +159,10 @@ export async function chatJson(opts: {
 }
 
 /** Text-to-image. Asks for explicit dimensions and retries without them if the provider refuses. */
-export async function textToImage(prompt: string, width: number, height: number): Promise<Blob> {
+export async function textToImage(token: string, prompt: string, width: number, height: number): Promise<Blob> {
   const s = labSettings();
   const run = async (withSize: boolean) =>
-    client().textToImage(
+    client(token).textToImage(
       {
         ...target(s.image),
         inputs: prompt,
